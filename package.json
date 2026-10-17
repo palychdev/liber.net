@@ -8,7 +8,7 @@
     "start": "electron ."
   },
   "devDependencies": {
-    "electron": "latest"
+    "electron": "^44.9.0"
   },
   "license": "MIT",
   "author": "palychdev"

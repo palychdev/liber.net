@@ -3,7 +3,14 @@ const fs = require('fs')
 const path = require('path')
 
 const EXE = path.join(__dirname, '..', 'engine', 'ciadpi.exe')
-const ARGS = ['-i', '127.0.0.1', '-p', '1079']
+const ARGS = [
+  '-i', '127.0.0.1',
+  '-p', '1079',
+  '--split', '1+s',
+  '--disorder', '3+s',
+  '--auto=torst',
+  '--timeout', '3',
+]
 const PORT = 1079
 const MAX_FAILS = 30
 
