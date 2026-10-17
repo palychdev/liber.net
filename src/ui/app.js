@@ -13,6 +13,18 @@ const lockEl = document.getElementById('lock')
 const moreEl = document.getElementById('more')
 const menuEl = document.getElementById('menu')
 const tmenuEl = document.getElementById('tmenu')
+const tsearchEl = document.getElementById('tsearch')
+const tsqEl = document.getElementById('tsq')
+const tslistEl = document.getElementById('tslist')
+
+const isPriv = location.search.includes('priv=1')
+if (isPriv) {
+  document.body.classList.add('priv')
+  const tag = document.createElement('span')
+  tag.className = 'privtag'
+  tag.textContent = 'инкогнито'
+  document.querySelector('.logo').after(tag)
+}
 
 window.addEventListener('error', e => {
   window.__liberErr = String(e.message) + ' @' + (e.filename || '') + ':' + (e.lineno || 0)
@@ -102,6 +114,38 @@ function closeMenus() {
   tmenuEl.classList.remove('show')
 }
 
+function renderTsearch() {
+  const q = tsqEl.value.trim().toLowerCase()
+  const list = (state ? state.tabs : []).filter(t => !q || ((t.title || '') + ' ' + (t.url || '')).toLowerCase().includes(q))
+  tslistEl.replaceChildren(...list.map(t => {
+    const d = document.createElement('div')
+    d.className = 'tsrow' + (t.active ? ' on' : '')
+    const tt = document.createElement('span')
+    tt.className = 'tt'
+    tt.textContent = t.title || t.url
+    const uu = document.createElement('span')
+    uu.className = 'tu'
+    uu.textContent = t.url
+    d.append(tt, uu)
+    d.addEventListener('click', () => { window.liber.switchTab(t.id); closeTabSearch() })
+    return d
+  }))
+}
+
+function openTabSearch() {
+  closeMenus()
+  tsearchEl.classList.add('show')
+  tsqEl.value = ''
+  renderTsearch()
+  tsqEl.focus()
+}
+
+function closeTabSearch() {
+  tsearchEl.classList.remove('show')
+}
+
+tsqEl.addEventListener('input', renderTsearch)
+
 function showTabMenu(t, x, y) {
   popMenu(tmenuEl, x, y, [
     { label: 'обновить', action: () => window.liber.reload(t.id) },
@@ -119,12 +163,15 @@ function showMainMenu(x, y) {
   const z = (state && state.zoom) || 100
   popMenu(menuEl, x, y, [
     { label: 'новая вкладка', hint: 'Ctrl+T', action: () => window.liber.newTab() },
+    { label: 'новое окно', hint: 'Ctrl+N', action: () => window.liber.newWindow(false) },
+    { label: 'новое окно инкогнито', hint: 'Ctrl+Shift+N', action: () => window.liber.newWindow(true) },
     null,
     { label: 'история', hint: 'Ctrl+H', action: () => window.liber.page('hist') },
     { label: 'загрузки', hint: 'Ctrl+J', action: () => window.liber.page('dls') },
     { label: 'закладки', hint: 'Ctrl+Shift+O', action: () => window.liber.page('bms') },
     null,
     { label: 'найти на странице', hint: 'Ctrl+F', action: () => enterFind() },
+    { label: 'поиск по вкладкам', hint: 'Ctrl+Shift+A', action: () => openTabSearch() },
     { label: 'сохранить страницу', hint: 'Ctrl+S', action: () => a && window.liber.save(a.id) },
     { label: 'печать', hint: 'Ctrl+P', action: () => a && window.liber.print(a.id) },
     { label: 'просмотр кода', hint: 'Ctrl+U', action: () => a && window.liber.source(a.id) },
@@ -306,6 +353,7 @@ window.liber.onSettings(s => { settings = Object.assign(settings, s); renderBm(b
 window.liber.onOmni(() => { omni.focus(); omni.select(); querySug() })
 window.liber.onFind(() => enterFind())
 window.liber.onHideSug(() => hideSug())
+window.liber.onTabSearch(() => openTabSearch())
 window.liber.onFindRes(r => { cntEl.textContent = findMode ? `${r.active}/${r.count}` : '' })
 window.liber.onOmniPaste(text => {
   if (!text) return
@@ -371,7 +419,12 @@ omni.addEventListener('keydown', e => {
 })
 
 window.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeMenus(); if (findMode) exitFind(); return }
+  if (e.key === 'Escape') {
+    if (tsearchEl.classList.contains('show')) { closeTabSearch(); return }
+    closeMenus()
+    if (findMode) exitFind()
+    return
+  }
   const ctrl = e.ctrlKey || e.metaKey
   if (!ctrl || e.altKey) {
     if (e.key === 'F11') { e.preventDefault(); window.liber.full() }
@@ -383,6 +436,8 @@ window.addEventListener('keydown', e => {
   if (e.shiftKey) {
     if (k === 'o') { e.preventDefault(); window.liber.page('bms') }
     else if (k === 't') { e.preventDefault(); window.liber.reopen() }
+    else if (k === 'n') { e.preventDefault(); window.liber.newWindow(true) }
+    else if (k === 'a') { e.preventDefault(); openTabSearch() }
     else if (k === 'b') { e.preventDefault(); settings.bmBar = settings.bmBar === false; window.liber.stSet({ bmBar: settings.bmBar }); renderBm(bms) }
     else if (k === 'Delete') { e.preventDefault(); window.liber.page('settings') }
     else if (k === 'Tab') { e.preventDefault(); window.liber.cycle(-1) }
@@ -391,6 +446,7 @@ window.addEventListener('keydown', e => {
     return
   }
   if (k === 't') { e.preventDefault(); window.liber.newTab() }
+  else if (k === 'n') { e.preventDefault(); window.liber.newWindow(false) }
   else if (k === 'w') { e.preventDefault(); if (a) window.liber.closeTab(a.id) }
   else if (k === 'l') { e.preventDefault(); omni.focus(); omni.select() }
   else if (k === 'f') { e.preventDefault(); enterFind() }
@@ -421,6 +477,7 @@ tabsEl.addEventListener('wheel', e => {
 document.addEventListener('mousedown', e => {
   if (!menuEl.contains(e.target) && e.target !== moreEl) menuEl.classList.remove('show')
   if (!tmenuEl.contains(e.target)) tmenuEl.classList.remove('show')
+  if (!tsearchEl.contains(e.target)) tsearchEl.classList.remove('show')
 })
 
 window.addEventListener('blur', closeMenus)
