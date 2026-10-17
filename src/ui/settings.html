@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Настройки — Liber</title>
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <div class="wrap">
+    <h2>Настройки</h2>
+    <div class="sub">всё сохраняется само</div>
+
+    <div class="card">
+      <h3>Основное</h3>
+      <div class="kv">
+        <span class="k">поисковик</span>
+        <select id="search">
+          <option value="ddg">duckduckgo</option>
+          <option value="google">google</option>
+          <option value="yandex">яндекс</option>
+          <option value="bing">bing</option>
+        </select>
+      </div>
+      <div class="kv">
+        <span class="k">домашняя страница</span>
+        <input id="home" type="text" placeholder="пусто — стартовая liber" spellcheck="false">
+      </div>
+      <div class="kv">
+        <span class="k">папка загрузок</span>
+        <span class="v" id="dldir"></span>
+        <button class="mini" id="pickdl">выбрать</button>
+      </div>
+      <div class="kv">
+        <span class="k">полка закладок</span>
+        <label><input id="bmbar" type="checkbox"> показывать, когда есть закладки</label>
+      </div>
+      <div class="kv">
+        <span class="k">сессия</span>
+        <label><input id="restore" type="checkbox"> восстанавливать вкладки при запуске</label>
+      </div>
+      <div class="hint" id="saved"></div>
+    </div>
+
+    <div class="card">
+      <h3>Браузер по умолчанию</h3>
+      <div class="kv">
+        <span class="k"></span>
+        <button class="btn" id="def">сделать браузером по умолчанию</button>
+      </div>
+      <div class="hint">windows попросит подтвердить выбор в списке приложений — liber там появится.</div>
+    </div>
+
+    <div class="card">
+      <h3>Конфиденциальность</h3>
+      <div class="kv">
+        <span class="k">данные</span>
+        <button class="mini" id="clHist">очистить историю</button>
+        <button class="mini" id="clCache">очистить кэш</button>
+        <button class="mini" id="clSite">очистить куки и данные сайтов</button>
+        <button class="mini danger" id="clAll">очистить всё</button>
+      </div>
+      <div class="hint" id="cleared"></div>
+    </div>
+
+    <div class="card">
+      <h3>Обход блокировок</h3>
+      <div class="kv">
+        <span class="k">движок</span>
+        <span class="st" id="eng">…</span>
+      </div>
+      <div class="hint">встроенный desync-движок поднимается сам при старте. настройки не нужны — так задумано.</div>
+    </div>
+
+    <div class="card">
+      <h3>О браузере</h3>
+      <div class="about" id="about"></div>
+    </div>
+  </div>
+  <script>
+    const P = window.liberPage
+    const $ = id => document.getElementById(id)
+
+    function flash(t) {
+      $('saved').textContent = t
+      clearTimeout(flash.t)
+      flash.t = setTimeout(() => { $('saved').textContent = '' }, 1600)
+    }
+
+    async function load() {
+      const s = await P.stGet()
+      $('search').value = s.search
+      $('home').value = s.homepage
+      $('dldir').textContent = s.downloadsDir
+      $('bmbar').checked = s.bmBar !== false
+      $('restore').checked = s.restore !== false
+      const e = $('eng')
+      e.textContent = s.engine ? 'работает' : 'выключен'
+      e.className = 'st ' + (s.engine ? 'ok' : 'bad')
+      $('about').innerHTML =
+        'liber <b>' + s.version + '</b> — браузер с встроенным обходом блокировок.<br>' +
+        'chromium <b>' + s.chrome + '</b> · electron <b>' + s.electron + '</b><br>' +
+        '<a href="https://github.com/palychdev/liber.net" id="gh">github.com/palychdev/liber.net</a>'
+      $('gh').addEventListener('click', ev => { ev.preventDefault(); P.newTab('https://github.com/palychdev/liber.net') })
+    }
+
+    $('search').addEventListener('change', async () => { await P.stSet({ search: $('search').value }); flash('сохранено') })
+    $('home').addEventListener('change', async () => { await P.stSet({ homepage: $('home').value }); flash('сохранено') })
+    $('bmbar').addEventListener('change', async () => { await P.stSet({ bmBar: $('bmbar').checked }); flash('сохранено') })
+    $('restore').addEventListener('change', async () => { await P.stSet({ restore: $('restore').checked }); flash('сохранено') })
+    $('pickdl').addEventListener('click', async () => {
+      const d = await P.pickDir()
+      if (d) { $('dldir').textContent = d; flash('сохранено') }
+    })
+
+    $('def').addEventListener('click', async () => {
+      await P.setDefault()
+      flash('windows откроет список приложений')
+    })
+
+    $('clHist').addEventListener('click', async () => { await P.clearData({ history: true }); $('cleared').textContent = 'история очищена' })
+    $('clCache').addEventListener('click', async () => { await P.clearData({ cache: true }); $('cleared').textContent = 'кэш очищен' })
+    $('clSite').addEventListener('click', async () => { await P.clearData({ site: true }); $('cleared').textContent = 'куки и данные сайтов очищены' })
+    $('clAll').addEventListener('click', async () => {
+      await P.clearData({ history: true, cache: true, site: true })
+      $('cleared').textContent = 'всё очищено'
+    })
+
+    load()
+  </script>
+</body>
+</html>

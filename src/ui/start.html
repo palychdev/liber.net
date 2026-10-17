@@ -44,6 +44,14 @@
       border-color: #8a7bff;
       box-shadow: 0 0 0 4px rgba(138, 123, 255, 0.14);
     }
+    .links { margin-top: 30px; display: flex; gap: 22px; justify-content: center; }
+    .links a {
+      color: #8b8d97;
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .links a:hover { color: #8a7bff; }
     .foot { margin-top: 26px; color: #565863; font-size: 12px; }
   </style>
 </head>
@@ -52,10 +60,29 @@
   <div class="wrap">
     <div class="mark">Liber<i>.</i></div>
     <div class="tag">интернет без препятствий. уже включено.</div>
-    <form action="https://duckduckgo.com/" method="get">
+    <form id="f">
       <input name="q" type="text" placeholder="адрес или поиск" autocomplete="off" spellcheck="false">
     </form>
+    <div class="links">
+      <a data-p="hist">История</a>
+      <a data-p="dls">Загрузки</a>
+      <a data-p="bms">Закладки</a>
+      <a data-p="settings">Настройки</a>
+    </div>
     <div class="foot">liber.net</div>
   </div>
+  <script>
+    const P = window.liberPage
+    document.getElementById('f').addEventListener('submit', e => {
+      e.preventDefault()
+      const v = e.target.q.value.trim()
+      if (!v) return
+      if (P) P.nav(v)
+      else location.href = 'https://duckduckgo.com/?q=' + encodeURIComponent(v)
+    })
+    for (const a of document.querySelectorAll('.links a')) {
+      a.addEventListener('click', () => { if (P) P.page(a.dataset.p) })
+    }
+  </script>
 </body>
 </html>

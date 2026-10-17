@@ -83,3 +83,64 @@ h2 {
 .item .del:hover { background: rgba(255,95,86,0.12); color: #ff5f56; }
 
 .empty { color: #565863; font-size: 13.5px; padding: 24px 0; }
+
+.card {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  background: rgba(255,255,255,0.02);
+}
+.card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #e7e7ea; }
+.kv { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+.kv .k { width: 170px; color: #8b8d97; font-size: 13px; flex: 0 0 auto; }
+.kv .v { flex: 1; color: #e7e7ea; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kv label { color: #c9cad1; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.kv select, .kv input[type=text] {
+  flex: 1;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  color: #e7e7ea;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.kv select:focus, .kv input:focus { border-color: #8a7bff; }
+.hint { color: #565863; font-size: 12px; margin-top: 6px; }
+.st { font-size: 11.5px; padding: 2px 8px; border-radius: 7px; background: rgba(255,255,255,0.06); color: #8b8d97; flex: 0 0 auto; }
+.st.ok { color: #3ddc97; background: rgba(61,220,151,0.10); }
+.st.bad { color: #ff5f56; background: rgba(255,95,86,0.10); }
+.dl-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.mini {
+  padding: 4px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: transparent;
+  color: #8b8d97;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.mini:hover { color: #e7e7ea; background: rgba(255,255,255,0.07); }
+.mini.danger:hover { color: #ff5f56; border-color: #ff5f56; }
+.searchbox {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  color: #e7e7ea;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  margin-bottom: 16px;
+}
+.searchbox:focus { border-color: #8a7bff; }
+.about { color: #8b8d97; font-size: 12.5px; line-height: 1.8; }
+.about b { color: #e7e7ea; font-weight: 600; }
+.about a { color: #8a7bff; text-decoration: none; }
+.about a:hover { text-decoration: underline; }

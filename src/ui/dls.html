@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Загрузки — Liber</title>
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <div class="wrap">
+    <h2>Загрузки</h2>
+    <div class="sub">файлы сохраняются в папку загрузок</div>
+    <div class="row">
+      <button id="clear" class="btn danger">очистить список</button>
+    </div>
+    <div id="list"></div>
+  </div>
+  <script>
+    const P = window.liberPage
+    const listEl = document.getElementById('list')
+
+    function fmtSize(n) {
+      if (!n) return ''
+      if (n < 1024) return n + ' б'
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' кб'
+      if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' мб'
+      return (n / 1024 / 1024 / 1024).toFixed(2) + ' гб'
+    }
+
+    function when(ts) {
+      const d = new Date(ts || Date.now())
+      const td = new Date()
+      const same = d.toDateString() === td.toDateString()
+      const t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      return (same ? '' : d.toLocaleDateString() + ' ') + t
+    }
+
+    function stateOf(d) {
+      const pct = d.total > 0 ? Math.round((d.received / d.total) * 100) : 0
+      if (d.state === 'progressing') return { t: pct + '%', c: 'st' }
+      if (d.state === 'paused') return { t: 'пауза', c: 'st' }
+      if (d.state === 'completed') return { t: 'готово', c: 'st ok' }
+      if (d.state === 'cancelled') return { t: 'отменено', c: 'st bad' }
+      return { t: 'ошибка', c: 'st bad' }
+    }
+
+    function render(items) {
+      if (!items.length) {
+        listEl.innerHTML = '<div class="empty">пока пусто</div>'
+        return
+      }
+      listEl.replaceChildren(...items.map(d => {
+        const row = document.createElement('div')
+        row.className = 'item'
+        const tx = document.createElement('div')
+        tx.className = 'tx'
+        const a = document.createElement('a')
+        a.href = '#'
+        a.textContent = d.name
+        a.title = d.path
+        a.addEventListener('click', e => { e.preventDefault(); P.dlOpen(d.id) })
+        const u = document.createElement('div')
+        u.className = 'u'
+        const size = d.state === 'completed' && d.received ? fmtSize(d.received) : ''
+        u.textContent = [d.url, size].filter(Boolean).join(' · ')
+        tx.append(a, u)
+        const s = stateOf(d)
+        const st = document.createElement('span')
+        st.className = s.c
+        st.textContent = s.t
+        const w = document.createElement('span')
+        w.className = 'when'
+        w.textContent = when(d.date)
+        const acts = document.createElement('div')
+        acts.className = 'dl-actions'
+        const mk = (label, fn, cls) => {
+          const b = document.createElement('button')
+          b.className = 'mini' + (cls ? ' ' + cls : '')
+          b.textContent = label
+          b.addEventListener('click', fn)
+          return b
+        }
+        if (d.state === 'progressing' || d.state === 'paused') {
+          acts.append(mk(d.state === 'paused' ? 'продолжить' : 'пауза', async () => { await P.dlPause(d.id); load() }))
+          acts.append(mk('отмена', async () => { await P.dlCancel(d.id); load() }))
+        } else {
+          acts.append(mk('открыть', () => P.dlOpen(d.id)))
+          acts.append(mk('папка', () => P.dlReveal(d.id)))
+        }
+        acts.append(mk('✕', async () => { await P.dlRemove(d.id); load() }, 'danger'))
+        row.append(tx, st, w, acts)
+        return row
+      }))
+    }
+
+    async function load() {
+      render(await P.dls())
+    }
+
+    document.getElementById('clear').addEventListener('click', async () => { await P.dlClear(); load() })
+
+    load()
+    setInterval(load, 900)
+  </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 {
   "name": "liber",
   "productName": "Liber",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Liber browser — chromium with built-in dpi-desync bypass (liber.net)",
   "main": "src/main.js",
   "scripts": {

@@ -9,6 +9,7 @@
   <div class="wrap">
     <h2>История</h2>
     <div class="sub">записывается только http/https</div>
+    <input id="q" class="searchbox" placeholder="поиск по истории" spellcheck="false">
     <div class="row">
       <button id="clr" class="btn danger">очистить всё</button>
     </div>
@@ -16,7 +17,9 @@
   </div>
   <script>
     const listEl = document.getElementById('list')
+    const qEl = document.getElementById('q')
     const P = window.liberPage
+    let all = []
 
     function when(ts) {
       const d = new Date(ts)
@@ -26,10 +29,11 @@
       return (same ? '' : d.toLocaleDateString() + ' ') + t
     }
 
-    async function render() {
-      const items = await P.hist()
+    function render() {
+      const q = qEl.value.trim().toLowerCase()
+      const items = q ? all.filter(it => ((it.title || '') + ' ' + it.url).toLowerCase().includes(q)) : all
       if (!items.length) {
-        listEl.innerHTML = '<div class="empty">пусто</div>'
+        listEl.innerHTML = '<div class="empty">' + (all.length ? 'ничего не найдено' : 'пусто') + '</div>'
         return
       }
       listEl.replaceChildren(...items.map(it => {
@@ -52,6 +56,7 @@
         del.textContent = '✕'
         del.addEventListener('click', async () => {
           await P.histRemove(it.url)
+          all = await P.hist()
           render()
         })
         d.append(tx, w, del)
@@ -61,10 +66,18 @@
 
     document.getElementById('clr').addEventListener('click', async () => {
       await P.histClear()
+      all = await P.hist()
       render()
     })
 
-    render()
+    qEl.addEventListener('input', render)
+
+    async function load() {
+      all = await P.hist()
+      render()
+    }
+
+    load()
   </script>
 </body>
 </html>
