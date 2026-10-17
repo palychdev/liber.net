@@ -631,6 +631,167 @@ function uniquePath(dir, name) {
   return f
 }
 
+const LOCAL = process.env.LOCALAPPDATA || ''
+const ROAM = process.env.APPDATA || ''
+
+const BROWSERS = [
+  { id: 'chrome', name: 'chrome', kind: 'cr', dir: () => path.join(LOCAL, 'Google', 'Chrome', 'User Data') },
+  { id: 'edge', name: 'edge', kind: 'cr', dir: () => path.join(LOCAL, 'Microsoft', 'Edge', 'User Data') },
+  { id: 'brave', name: 'brave', kind: 'cr', dir: () => path.join(LOCAL, 'BraveSoftware', 'Brave-Browser', 'User Data') },
+  { id: 'yandex', name: 'яндекс', kind: 'cr', dir: () => path.join(LOCAL, 'Yandex', 'YandexBrowser', 'User Data') },
+  { id: 'opera', name: 'opera', kind: 'cr', flat: true, dir: () => path.join(ROAM, 'Opera Software', 'Opera Stable') },
+  { id: 'firefox', name: 'firefox', kind: 'ff', dir: () => path.join(ROAM, 'Mozilla', 'Firefox', 'Profiles') },
+]
+
+function profLabel(b, n) {
+  const sec = String(n || '').split('.')[0]
+  return b.name + (!sec || sec === 'Default' ? '' : ' · ' + sec.toLowerCase())
+}
+
+function importProfiles() {
+  const out = []
+  for (const b of BROWSERS) {
+    const dir = b.dir()
+    let names = []
+    try { names = fs.readdirSync(dir) } catch (_) { continue }
+    if (b.flat) names = ['']
+    for (const n of names) {
+      if (!b.flat && b.kind === 'cr' && n !== 'Default' && !/^Profile \d+$/.test(n)) continue
+      const p = n ? path.join(dir, n) : dir
+      const hasBookmarks = fs.existsSync(path.join(p, b.kind === 'ff' ? 'places.sqlite' : 'Bookmarks'))
+      const hasHistory = fs.existsSync(path.join(p, b.kind === 'ff' ? 'places.sqlite' : 'History'))
+      if (!hasBookmarks && !hasHistory) continue
+      out.push({ id: b.id + '|' + (n || '0'), name: b.name, kind: b.kind, dir: p, label: profLabel(b, n), hasBookmarks, hasHistory })
+    }
+  }
+  return out
+}
+
+function withDb(file, fn) {
+  let sqlite = null
+  try { sqlite = require('node:sqlite') } catch (_) { return null }
+  const tmp = path.join(app.getPath('temp'), 'liber-imp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.db')
+  try {
+    fs.copyFileSync(file, tmp)
+    for (const suf of ['-wal', '-shm']) if (fs.existsSync(file + suf)) fs.copyFileSync(file + suf, tmp + suf)
+  } catch (_) { return null }
+  let out = null
+  try {
+    const db = new sqlite.DatabaseSync(tmp, { readOnly: true })
+    out = fn(db)
+    db.close()
+  } catch (_) {
+    out = null
+  }
+  for (const f of [tmp, tmp + '-wal', tmp + '-shm']) { try { fs.unlinkSync(f) } catch (_) {} }
+  return out
+}
+
+function parseBookmarks(file, folder, out) {
+  let raw = null
+  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')) } catch (_) { return }
+  const walk = (node, f) => {
+    if (!node) return
+    if (node.type === 'url' && node.url) {
+      out.push({ url: node.url, title: node.name || node.url, folder: f })
+      return
+    }
+    const nf = node.type === 'folder' && node.name ? node.name : f
+    for (const c of node.children || []) walk(c, nf)
+  }
+  const roots = raw.roots || {}
+  for (const k of ['bookmark_bar', 'other', 'synced']) {
+    const r = roots[k]
+    if (!r) continue
+    for (const c of r.children || []) walk(c, folder)
+  }
+}
+
+function readFirefoxBookmarks(dir, folder) {
+  const rows = withDb(path.join(dir, 'places.sqlite'), db => db.prepare('SELECT b.id, b.parent, b.type, b.title, p.url FROM moz_bookmarks b LEFT JOIN moz_places p ON p.id = b.fk').all())
+  if (!rows) return null
+  const kids = new Map()
+  const meta = new Map()
+  for (const r of rows) {
+    meta.set(r.id, r)
+    if (!kids.has(r.parent)) kids.set(r.parent, [])
+    kids.get(r.parent).push(r.id)
+  }
+  const out = []
+  const walk = (id, f) => {
+    for (const cid of kids.get(id) || []) {
+      const n = meta.get(cid)
+      if (!n) continue
+      if (n.type === 1) {
+        if (n.url) out.push({ url: n.url, title: n.title || n.url, folder: f })
+      } else if (n.type === 2) {
+        const t = String(n.title || '').trim()
+        if (/^(tags|метки)$/i.test(t)) continue
+        walk(cid, t || f)
+      }
+    }
+  }
+  walk(0, folder)
+  return out
+}
+
+function readChromeHistory(file, limit) {
+  const rows = withDb(file, db => db.prepare('SELECT url, title, last_visit_time FROM urls ORDER BY last_visit_time DESC LIMIT ?').all(limit))
+  if (!rows) return null
+  return rows.filter(r => r.url).map(r => ({ url: r.url, title: r.title || r.url, date: Math.max(0, Number(r.last_visit_time) / 1000 - 11644473600000) }))
+}
+
+function readFirefoxHistory(dir, limit) {
+  const rows = withDb(path.join(dir, 'places.sqlite'), db => db.prepare('SELECT url, title, last_visit_date FROM moz_places WHERE last_visit_date IS NOT NULL ORDER BY last_visit_date DESC LIMIT ?').all(limit))
+  if (!rows) return null
+  return rows.filter(r => r.url).map(r => ({ url: r.url, title: r.title || r.url, date: Math.max(0, Number(r.last_visit_date) / 1000) }))
+}
+
+function importRun(opts) {
+  const o = opts || {}
+  const p = importProfiles().find(x => x.id === o.id)
+  if (!p) return { bookmarks: 0, history: 0, historyOk: false }
+  let added = 0
+  if (o.bookmarks && p.hasBookmarks) {
+    const found = p.kind === 'ff' ? readFirefoxBookmarks(p.dir, p.label) : []
+    if (p.kind !== 'ff') parseBookmarks(path.join(p.dir, 'Bookmarks'), p.label, found)
+    const have = new Set(data.bookmarks.map(b => b.url))
+    for (const b of found || []) {
+      if (!b.url || have.has(b.url)) continue
+      have.add(b.url)
+      data.bookmarks.push({ url: b.url, title: b.title, folder: p.label, date: Date.now() })
+      added += 1
+    }
+    if (added && !data.bmFolders.includes(p.label)) data.bmFolders.push(p.label)
+    if (added) {
+      storage.save(data)
+      sendBm()
+      eachW(applyLayout)
+      bcast()
+    }
+  }
+  let rows = []
+  let historyOk = false
+  if (o.history && p.hasHistory) {
+    const res = p.kind === 'ff' ? readFirefoxHistory(p.dir, 3000) : readChromeHistory(path.join(p.dir, 'History'), 3000)
+    historyOk = !!res
+    rows = res || []
+  }
+  let hAdded = 0
+  if (rows.length) {
+    const map = new Map()
+    for (const h of data.history) map.set(h.url, h)
+    for (const r of rows) {
+      const ex = map.get(r.url)
+      if (!ex || r.date > ex.date) map.set(r.url, r)
+    }
+    data.history = [...map.values()].sort((a, b) => b.date - a.date).slice(0, 1000)
+    storage.save(data)
+    hAdded = rows.length
+  }
+  return { bookmarks: added, history: hAdded, historyOk }
+}
+
 function onWillDownload(e, item) {
   const f = uniquePath(dlDirOf(), item.getFilename())
   item.setSavePath(f)
@@ -951,6 +1112,8 @@ ipcMain.handle('d:clear', () => {
   sendDls()
   bcast()
 })
+ipcMain.handle('imp:scan', () => importProfiles().map(p => ({ id: p.id, name: p.name, label: p.label, hasBookmarks: p.hasBookmarks, hasHistory: p.hasHistory })))
+ipcMain.handle('imp:run', (e, opts) => importRun(opts))
 ipcMain.handle('st:get', () => ({
   search: settings.search,
   homepage: settings.homepage,
@@ -1233,6 +1396,22 @@ if (!lock) {
       console.log('ST folder del:', JSON.stringify(data.bmFolders), 'item folder:', String(oneBm.folder))
       toggleBm('https://liber.net/folder-test')
       console.log('ST folder cleanup bm:', data.bookmarks.length)
+      console.log('ST import scan:', JSON.stringify(importProfiles().map(p => p.id)))
+      const prof = importProfiles().find(p => p.hasBookmarks)
+      if (prof) {
+        const r = importRun({ id: prof.id, bookmarks: true })
+        console.log('ST import bookmarks:', r.bookmarks, 'folder:', prof.label)
+        const keepHist = data.history
+        const rh = importRun({ id: prof.id, history: true })
+        console.log('ST import history:', rh.history, 'ok:', rh.historyOk, 'sample:', data.history[0] ? data.history[0].url.slice(0, 40) : '-')
+        data.history = keepHist
+        data.bookmarks = data.bookmarks.filter(b => b.folder !== prof.label)
+        bmFolderDel(prof.label)
+        storage.save(data)
+        console.log('ST import cleanup:', data.bookmarks.length, 'history:', data.history.length)
+      } else {
+        console.log('ST import: no profile found')
+      }
       persist()
       const saved = storage.load()
       console.log('ST persisted windows:', JSON.stringify((saved.windows || []).map(w => w.tabs.length)))

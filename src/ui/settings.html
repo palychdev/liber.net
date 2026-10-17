@@ -63,6 +63,12 @@
     </div>
 
     <div class="card">
+      <h3>Импорт из другого браузера</h3>
+      <div class="about" id="imp">ищу установленные браузеры…</div>
+      <div class="hint" id="impres"></div>
+    </div>
+
+    <div class="card">
       <h3>Обход блокировок</h3>
       <div class="kv">
         <span class="k">движок</span>
@@ -103,6 +109,37 @@
       $('gh').addEventListener('click', ev => { ev.preventDefault(); P.newTab('https://github.com/palychdev/liber.net') })
     }
 
+    async function loadImp() {
+      const box = $('imp')
+      const list = await P.impScan()
+      if (!list.length) {
+        box.textContent = 'chrome, edge и brave на этом компьютере не найдены'
+        return
+      }
+      box.replaceChildren(...list.map(p => {
+        const d = document.createElement('div')
+        d.className = 'kv'
+        const k = document.createElement('span')
+        k.className = 'k'
+        k.textContent = p.label
+        const v = document.createElement('span')
+        v.className = 'v'
+        v.textContent = [p.hasBookmarks ? 'закладки' : '', p.hasHistory ? 'история' : ''].filter(Boolean).join(' + ')
+        const b = document.createElement('button')
+        b.className = 'mini'
+        b.textContent = 'импортировать'
+        b.addEventListener('click', async () => {
+          b.disabled = true
+          const r = await P.impRun({ id: p.id, bookmarks: p.hasBookmarks, history: p.hasHistory })
+          b.disabled = false
+          $('impres').textContent = 'закладок: ' + r.bookmarks + ' · истории: ' + r.history +
+            (p.hasHistory && !r.historyOk ? ' (файл истории прочитать не вышло)' : '')
+        })
+        d.append(k, v, b)
+        return d
+      }))
+    }
+
     $('search').addEventListener('change', async () => { await P.stSet({ search: $('search').value }); flash('сохранено') })
     $('home').addEventListener('change', async () => { await P.stSet({ homepage: $('home').value }); flash('сохранено') })
     $('bmbar').addEventListener('change', async () => { await P.stSet({ bmBar: $('bmbar').checked }); flash('сохранено') })
@@ -126,6 +163,7 @@
     })
 
     load()
+    loadImp()
   </script>
 </body>
 </html>

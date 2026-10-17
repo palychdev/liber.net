@@ -32,5 +32,7 @@ if (location.protocol === 'file:') {
     clearData: what => ipcRenderer.invoke('data:clear', what),
     setDefault: () => ipcRenderer.invoke('app:default'),
     openExt: url => ipcRenderer.invoke('open-ext', url),
+    impScan: () => ipcRenderer.invoke('imp:scan'),
+    impRun: opts => ipcRenderer.invoke('imp:run', opts),
   })
 }
