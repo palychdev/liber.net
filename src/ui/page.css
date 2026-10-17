@@ -182,3 +182,15 @@ h2 {
 }
 .mini-sel:focus { border-color: #8a7bff; color: #e7e7ea; }
 .item .pt { font-size: 13.5px; }
+.srrow {
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding: 2px 0;
+}
+.srrow:first-child { border-top: none; }
+.srbody {
+  padding: 4px 0 10px 14px;
+  margin-left: 3px;
+  border-left: 2px solid rgba(138,123,255,0.25);
+}
+.srbody .k { width: 150px; }
+.srbody .mini-sel { flex: 1; }

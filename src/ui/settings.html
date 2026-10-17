@@ -82,6 +82,18 @@
     </div>
 
     <div class="card">
+      <h3>Разрешения сайтов</h3>
+      <div class="about">камера, микрофон, геолокация, уведомления и буфер обмена спрашиваются при первом запросе — выбор запоминается здесь. остальным можно управлять вручную: выключить javascript или куки, запретить картинки и всплывающие окна.</div>
+      <div id="srlist"></div>
+      <div class="kv">
+        <span class="k">добавить сайт</span>
+        <input id="srhost" type="text" placeholder="example.com" spellcheck="false">
+        <button class="mini" id="sradd">добавить</button>
+      </div>
+      <div class="hint" id="srres">всё, что не задано, работает как в других браузерах: разрешения спрашиваются, реклама режется, куки и javascript включены.</div>
+    </div>
+
+    <div class="card">
       <h3>Импорт из другого браузера</h3>
       <div class="about" id="imp">ищу установленные браузеры…</div>
       <div class="hint" id="impres"></div>
@@ -158,6 +170,86 @@
         return d
       }))
       return st
+    }
+
+    const SR_LABELS = [
+      ['camera', 'камера'], ['microphone', 'микрофон'], ['notifications', 'уведомления'],
+      ['location', 'геолокация'], ['clipboard', 'буфер обмена'], ['screen', 'захват экрана'],
+      ['popups', 'всплывающие окна'], ['ads', 'реклама'], ['js', 'javascript'],
+      ['cookies', 'куки'], ['images', 'картинки'],
+    ]
+
+    let srExtra = []
+
+    function srSummary(rule) {
+      const parts = []
+      for (const [key, label] of SR_LABELS) {
+        const v = rule ? rule[key] : ''
+        if (v === 'allow') parts.push(label + ': можно')
+        else if (v === 'deny') parts.push(label + ': нельзя')
+      }
+      return parts.length ? parts.join(' · ') : 'по умолчанию'
+    }
+
+    function srRow(host, rule, open) {
+      const box = document.createElement('div')
+      box.className = 'srrow'
+      const head = document.createElement('div')
+      head.className = 'kv'
+      const k = document.createElement('span')
+      k.className = 'k'
+      k.textContent = host
+      const v = document.createElement('span')
+      v.className = 'v'
+      v.textContent = srSummary(rule)
+      const edit = document.createElement('button')
+      edit.className = 'mini'
+      edit.textContent = 'изменить'
+      const del = document.createElement('button')
+      del.className = 'mini danger'
+      del.textContent = 'сбросить'
+      del.addEventListener('click', async () => {
+        await P.srDel(host)
+        srExtra = srExtra.filter(h => h !== host)
+        loadSr()
+      })
+      head.append(k, v, edit, del)
+      const body = document.createElement('div')
+      body.className = 'srbody'
+      body.hidden = !open
+      for (const [key, label] of SR_LABELS) {
+        const row = document.createElement('div')
+        row.className = 'kv'
+        const lk = document.createElement('span')
+        lk.className = 'k'
+        lk.textContent = label
+        const sel = document.createElement('select')
+        sel.className = 'mini-sel'
+        for (const opt of [['', 'по умолчанию'], ['allow', 'разрешить'], ['deny', 'запретить']]) {
+          const o = document.createElement('option')
+          o.value = opt[0]
+          o.textContent = opt[1]
+          sel.appendChild(o)
+        }
+        sel.value = (rule && rule[key]) || ''
+        sel.addEventListener('change', async () => {
+          await P.srSet(host, { [key]: sel.value })
+          loadSr()
+        })
+        row.append(lk, sel)
+        body.appendChild(row)
+      }
+      edit.addEventListener('click', () => { body.hidden = !body.hidden })
+      box.append(head, body)
+      return box
+    }
+
+    async function loadSr() {
+      const rows = await P.srList()
+      const map = new Map(rows.map(r => [r.host, r.rule]))
+      for (const h of srExtra) if (!map.has(h)) map.set(h, null)
+      const hosts = [...map.keys()].sort()
+      $('srlist').replaceChildren(...hosts.map(h => srRow(h, map.get(h), srExtra.includes(h))))
     }
 
     async function loadImp() {
@@ -249,10 +341,23 @@
       $('cleared').textContent = 'всё очищено'
     })
 
+    $('sradd').addEventListener('click', () => {
+      const h = $('srhost').value.trim().replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').split('/')[0].toLowerCase().replace(/^www\./, '')
+      if (!h.includes('.')) {
+        $('srres').textContent = 'нужен домен вида example.com'
+        return
+      }
+      if (!srExtra.includes(h)) srExtra.push(h)
+      $('srhost').value = ''
+      $('srres').textContent = h + ': выберите, что разрешить или запретить — правило сохранится само'
+      loadSr()
+    })
+
     load()
     loadImp()
     loadPw()
     loadAdb()
+    loadSr()
   </script>
 </body>
 </html>

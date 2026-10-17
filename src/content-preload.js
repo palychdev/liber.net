@@ -122,5 +122,8 @@ if (location.protocol === 'file:' || location.protocol === 'liber:') {
     readerBack: () => ipcRenderer.invoke('reader:back'),
     adsStats: () => ipcRenderer.invoke('ads:stats'),
     adsRefresh: () => ipcRenderer.invoke('ads:refresh'),
+    srList: () => ipcRenderer.invoke('sr:list'),
+    srSet: (host, patch) => ipcRenderer.invoke('sr:set', host, patch),
+    srDel: host => ipcRenderer.invoke('sr:del', host),
   })
 }

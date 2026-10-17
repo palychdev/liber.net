@@ -517,6 +517,8 @@ function attachEvents(t, w) {
     wc.on('console-message', (e, level, message, line, sourceId) => console.log('[tab]', message, '(' + sourceId + ':' + line + ')'))
   }
   wc.setWindowOpenHandler(({ url }) => {
+    const sr = siteRule(hostOfUrl(wc.getURL()))
+    if (sr && sr.popups === 'deny') return { action: 'deny' }
     if (/^https?:/i.test(url)) newTab(url, w)
     return { action: 'deny' }
   })
@@ -963,13 +965,129 @@ function siteRule(host) {
   return siteRules[h] || siteRules[regDomain(h)] || null
 }
 
-function adsAllowed(docUrl) {
+function hostOfUrl(url) {
   try {
-    const r = siteRule(new URL(docUrl).hostname)
-    return !!(r && r.ads === false)
+    return new URL(url).hostname.toLowerCase()
+  } catch (_) {
+    return ''
+  }
+}
+
+function adsAllowed(docUrl) {
+  const r = siteRule(hostOfUrl(docUrl))
+  return !!(r && r.ads === 'allow')
+}
+
+const SR_KEYS = ['camera', 'microphone', 'notifications', 'location', 'clipboard', 'screen', 'popups', 'ads', 'js', 'cookies', 'images']
+
+function normHost(host) {
+  let h = String(host || '').trim().toLowerCase()
+  if (!h) return ''
+  h = h.replace(/^[a-z][a-z0-9+.-]*:\/\//, '').split('/')[0].split('?')[0].split('#')[0].replace(/^www\./, '')
+  if (h.includes('@')) h = h.split('@').pop()
+  if (h.includes(':') && h[0] !== '[') h = h.split(':')[0]
+  if (h === 'localhost') return h
+  return /^[a-z0-9._-]{3,}$/.test(h) && h.includes('.') ? h : ''
+}
+
+function srSend(host, patch) {
+  const h = normHost(host)
+  if (!h || !patch || typeof patch !== 'object') return null
+  const cur = Object.assign({}, siteRules[h] || {})
+  for (const k of SR_KEYS) {
+    if (!(k in patch)) continue
+    const v = patch[k]
+    if (v === 'allow' || v === 'deny' || v === true || v === false) cur[k] = (v === true ? 'allow' : v === false ? 'deny' : v)
+    else delete cur[k]
+  }
+  if (Object.keys(cur).length) siteRules[h] = cur
+  else delete siteRules[h]
+  storage.save(data)
+  return Object.assign({ host: h }, cur)
+}
+
+function srDel(host) {
+  const h = normHost(host)
+  if (h) delete siteRules[h]
+  storage.save(data)
+}
+
+function srList() {
+  return Object.keys(siteRules).sort().map(h => ({ host: h, rule: Object.assign({}, siteRules[h]) }))
+}
+
+const PERM_KINDS = {
+  'clipboard-read': 'clipboard',
+  'display-capture': 'screen',
+  geolocation: 'location',
+  notifications: 'notifications',
+}
+
+const SILENT_PERMS = new Set(['fullscreen', 'pointerLock', 'clipboard-sanitized-write', 'idle-detection', 'speaker-selection', 'mediaKeySystem', 'window-management'])
+
+const PERM_LABELS = {
+  camera: 'камеру',
+  microphone: 'микрофон',
+  notifications: 'уведомления',
+  location: 'геолокацию',
+  clipboard: 'буфер обмена',
+  screen: 'захват экрана',
+}
+
+function permKind(permission, details) {
+  if (permission === 'media') {
+    const types = (details && details.mediaTypes) || []
+    if (types.includes('video')) return 'camera'
+    if (types.includes('audio')) return 'microphone'
+    return 'camera'
+  }
+  return PERM_KINDS[permission] || ''
+}
+
+function permDecision(host, kind) {
+  const r = siteRule(host)
+  const v = r ? r[kind] : ''
+  return v === 'allow' || v === 'deny' ? v : 'ask'
+}
+
+function hostFromReq(wc, details) {
+  const raw = (details && details.requestingUrl) || (wc && !wc.isDestroyed() ? wc.getURL() : '')
+  return hostOfUrl(raw)
+}
+
+async function askPermission(wc, host, kind) {
+  if (!host) return false
+  const w = W_ofTab(wcToTab(wc))
+  const opt = {
+    type: 'question',
+    buttons: ['разрешить', 'запретить'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+    message: host + ' запрашивает ' + (PERM_LABELS[kind] || kind),
+    detail: 'liber запомнит выбор. поменять можно в настройках, раздел «разрешения сайтов».',
+  }
+  let res = null
+  try {
+    res = w && !w.win.isDestroyed() ? await dialog.showMessageBox(w.win, opt) : await dialog.showMessageBox(opt)
   } catch (_) {
     return false
   }
+  const ok = res.response === 0
+  srSend(host, { [kind]: ok ? 'allow' : 'deny' })
+  return ok
+}
+
+function docUrlOfDetails(details) {
+  let doc = ''
+  try {
+    doc = details.frame ? details.frame.url : ''
+  } catch (_) {}
+  if (!doc) {
+    const t = tabByWcId(details.webContentsId)
+    if (t) doc = t.url
+  }
+  return doc
 }
 
 function tabByWcId(id) {
@@ -1046,9 +1164,23 @@ async function loadFilters(force) {
 }
 
 function setupSession(s) {
-  const ALLOW = new Set(['media', 'fullscreen', 'pointerLock', 'notifications', 'clipboard-read', 'clipboard-sanitized-write', 'geolocation', 'display-capture'])
-  s.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOW.has(permission)))
-  s.setPermissionCheckHandler((wc, permission) => ALLOW.has(permission))
+  s.setPermissionRequestHandler((wc, permission, cb, details) => {
+    if (SILENT_PERMS.has(permission)) return cb(true)
+    const kind = permKind(permission, details)
+    if (!kind) return cb(false)
+    const host = hostFromReq(wc, details)
+    const dec = permDecision(host, kind)
+    if (dec === 'allow') return cb(true)
+    if (dec === 'deny') return cb(false)
+    askPermission(wc, host, kind).then(ok => cb(ok)).catch(() => cb(false))
+  })
+  s.setPermissionCheckHandler((wc, permission, origin, details) => {
+    if (SILENT_PERMS.has(permission)) return true
+    const kind = permKind(permission, details)
+    if (!kind) return false
+    const host = hostOfUrl(origin) || hostFromReq(wc, details)
+    return permDecision(host, kind) === 'allow'
+  })
   s.setDisplayMediaRequestHandler((req, cb) => {
     desktopCapturer.getSources({ types: ['screen'] })
       .then(srcs => cb(srcs.length ? { video: srcs[0], audio: 'loopback' } : {}))
@@ -1056,15 +1188,40 @@ function setupSession(s) {
   })
   s.on('will-download', onWillDownload)
   s.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, cb) => {
-    if (details.resourceType === 'mainFrame' || !adblock.ready || !adblock.on) return cb({})
-    let doc = ''
-    try { doc = details.frame ? details.frame.url : '' } catch (_) {}
-    if (!doc) {
-      const t = tabByWcId(details.webContentsId)
-      if (t) doc = t.url
+    const doc = docUrlOfDetails(details)
+    const sr = siteRule(hostOfUrl(doc)) || siteRule(hostOfUrl(details.url))
+    if (sr) {
+      if (details.resourceType === 'script' && sr.js === 'deny') return cb({ cancel: true })
+      if (details.resourceType === 'image' && sr.images === 'deny') return cb({ cancel: true })
     }
-    if (doc && adsAllowed(doc)) return cb({})
+    if (details.resourceType === 'mainFrame' || !adblock.ready || !adblock.on) return cb({})
+    if (sr && sr.ads === 'allow') return cb({})
     cb(adblock.check(details.url, details.resourceType, doc) ? { cancel: true } : {})
+  })
+  s.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, cb) => {
+    const sr = siteRule(hostOfUrl(details.url))
+    if (sr && sr.cookies === 'deny') {
+      const h = details.requestHeaders || {}
+      for (const k of Object.keys(h)) {
+        if (k.toLowerCase() === 'cookie') delete h[k]
+      }
+    }
+    cb({ requestHeaders: details.requestHeaders })
+  })
+  s.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (details, cb) => {
+    const headers = details.responseHeaders || {}
+    const sr = siteRule(hostOfUrl(details.url))
+    if (sr && sr.cookies === 'deny') {
+      for (const k of Object.keys(headers)) {
+        if (k.toLowerCase() === 'set-cookie') delete headers[k]
+      }
+    }
+    if (details.resourceType === 'mainFrame' && sr && sr.js === 'deny') {
+      const key = Object.keys(headers).find(k => k.toLowerCase() === 'content-security-policy')
+      if (key) headers[key] = headers[key].map(v => v + ", script-src 'none'")
+      else headers['Content-Security-Policy'] = ["script-src 'none'"]
+    }
+    cb({ responseHeaders: headers })
   })
 }
 
@@ -1419,6 +1576,9 @@ ipcMain.handle('ads:cosmetic', (e, host) => {
 })
 ipcMain.handle('ads:stats', () => adblock.stats())
 ipcMain.handle('ads:refresh', () => loadFilters(true))
+ipcMain.handle('sr:list', () => srList())
+ipcMain.handle('sr:set', (e, host, patch) => srSend(host, patch))
+ipcMain.handle('sr:del', (e, host) => { srDel(host); return true })
 ipcMain.handle('st:get', () => ({
   search: settings.search,
   homepage: settings.homepage,
@@ -1655,7 +1815,7 @@ if (!lock) {
       await wait(900)
       console.log('ST settings url:', w0.tabs[w0.tabs.length - 1].url)
       const stTab = w0.tabs[w0.tabs.length - 1]
-      console.log('ST settings cards:', await stTab.view.webContents.executeJavaScript(`JSON.stringify({ imp: !!document.getElementById('imp'), impText: (document.getElementById('imp').textContent || '').slice(0, 30), impRows: document.querySelectorAll('#imp .kv').length, pwcount: document.getElementById('pwcount').textContent })`))
+      console.log('ST settings cards:', await stTab.view.webContents.executeJavaScript(`JSON.stringify({ imp: !!document.getElementById('imp'), impText: (document.getElementById('imp').textContent || '').slice(0, 30), impRows: document.querySelectorAll('#imp .kv').length, pwcount: document.getElementById('pwcount').textContent, ab: !!document.getElementById('adblock'), absText: (document.getElementById('abs').textContent || '').slice(0, 24), sradd: !!document.getElementById('sradd') })`))
       await js(`(function(){ document.querySelectorAll('.tab')[0].click(); return 1 })()`)
       await wait(500)
       console.log('ST lock icon:', await js(`(() => { const l = document.getElementById('lock'); return l ? l.title + '|' + l.textContent : 'none' })()`))
@@ -1764,6 +1924,65 @@ if (!lock) {
       const abSel = (adblock.block.cosmeticGeneric.find(s => /^\.[a-z][a-z0-9_-]{2,30}$/i.test(s)) || '').slice(1)
       const abCss = await wc0.executeJavaScript(`JSON.stringify({ styles: document.querySelectorAll('style').length, sel: ${JSON.stringify(abSel)}, disp: (() => { if (!${JSON.stringify(abSel)}) return 'nosel'; const el = document.createElement('div'); el.className = ${JSON.stringify(abSel)}; document.body.appendChild(el); const d = getComputedStyle(el).display; el.remove(); return d })() })`)
       console.log('ST ab cosmetic:', abCss)
+      console.log('ST site rules:')
+      const nodeHttp = require('http')
+      const hits = { doc: 0, js: 0, img: 0 }
+      const srv = nodeHttp.createServer((req, res) => {
+        const p = String(req.url || '').split('?')[0]
+        if (p === '/favicon.ico') { res.statusCode = 204; return res.end() }
+        if (p === '/js.js') {
+          hits.js += 1
+          res.setHeader('Content-Type', 'application/javascript')
+          res.setHeader('Set-Cookie', 'abjs=1; Path=/')
+          return res.end('window.__ran = (window.__ran || 0) + 1')
+        }
+        if (p === '/img.png') {
+          hits.img += 1
+          res.setHeader('Content-Type', 'image/png')
+          return res.end(Buffer.from('89504e470d0a1a0a0000000d494844520000000100000001080600000', 'hex'))
+        }
+        if (p !== '/') { res.statusCode = 404; return res.end() }
+        hits.doc += 1
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.setHeader('Set-Cookie', 'abdoc=1; Path=/')
+        res.end('<!doctype html><html><body><p>site rules</p><script>window.__inline = 1<\/script><script src="/js.js"><\/script><img src="/img.png"></body></html>')
+      })
+      await new Promise(r => srv.listen(0, '127.0.0.1', r))
+      const lurl = 'http://127.0.0.1:' + srv.address().port + '/'
+      const clearTestCookies = async () => {
+        for (const c of await ses.cookies.get({ url: lurl }).catch(() => [])) await ses.cookies.remove(lurl, c.name).catch(() => {})
+      }
+      const probe = async () => JSON.parse(await wc0.executeJavaScript(`JSON.stringify({ inline: typeof window.__inline, ran: typeof window.__ran, imgs: document.images.length })`))
+      await wc0.loadURL(lurl)
+      await wait(1600)
+      console.log('ST sr clean:', JSON.stringify(hits), JSON.stringify(await probe()), 'cookies:', (await ses.cookies.get({ url: lurl })).map(c => c.name).sort().join(','))
+      srSend('127.0.0.1', { js: 'deny', images: 'deny', cookies: 'deny', popups: 'deny', camera: 'deny' })
+      await clearTestCookies()
+      await wc0.loadURL(lurl)
+      await wait(1800)
+      console.log('ST sr restricted:', JSON.stringify(hits), JSON.stringify(await probe()), 'cookies:', (await ses.cookies.get({ url: lurl })).map(c => c.name).sort().join(','))
+      const tabsBefore = w0.tabs.length
+      await wc0.executeJavaScript(`window.open('https://example.com/?popup')`)
+      await wait(900)
+      console.log('ST sr popup blocked:', w0.tabs.length === tabsBefore, w0.tabs.length)
+      console.log('ST sr perms:', JSON.stringify({ cam: permDecision('127.0.0.1', 'camera'), loc: permDecision('127.0.0.1', 'location'), kind: permKind('media', { mediaTypes: ['audio'] }) }))
+      const srId = newTab(internalPage('settings'), w0)
+      await wait(1300)
+      const srTab = w0.tabs[w0.tabs.length - 1]
+      console.log('ST sr ui:', await srTab.view.webContents.executeJavaScript(`JSON.stringify({ rows: document.querySelectorAll('#srlist .srrow').length, host: (document.querySelector('#srlist .srrow .k') || {}).textContent || '', sum: ((document.querySelector('#srlist .srrow .v') || {}).textContent || '').slice(0, 60), als: !!document.getElementById('adblock') })`))
+      closeTab(w0, srId)
+      await wait(400)
+      switchTab(w0, w0.tabs.find(t => t.view.webContents === wc0).id)
+      await wait(300)
+      console.log('ST sr ads allow:', adsAllowed(lurl), '->', (srSend('127.0.0.1', { ads: 'allow' }), adsAllowed(lurl)))
+      srDel('127.0.0.1')
+      await wc0.executeJavaScript(`window.open('https://example.com/?popup')`)
+      await wait(900)
+      console.log('ST sr popup after reset:', w0.tabs.length > tabsBefore, w0.tabs.length)
+      while (w0.tabs.length > tabsBefore) closeTab(w0, w0.tabs[w0.tabs.length - 1].id)
+      console.log('ST sr rules roundtrip:', JSON.stringify(srSend('a.example.com', { js: 'deny' })), JSON.stringify(srList()), (srDel('a.example.com'), JSON.stringify(srList())))
+      await clearTestCookies()
+      srv.close()
       console.log('ST sqlite:', (() => { try { require('node:sqlite'); return 'yes' } catch (_) { return 'no' } })())
       console.log('ST passwords:')
       pwSave('example.com', 'user1', 'secret1')
