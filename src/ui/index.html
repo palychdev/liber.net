@@ -10,10 +10,12 @@
     <div class="logo"><span>Liber</span><i>.</i></div>
     <div class="navc">
       <button id="back" class="icn" title="Назад">‹</button>
+      <button id="reld" class="icn" title="Обновить">⟳</button>
     </div>
     <div id="tabs"></div>
     <button id="add" class="add" title="Новая вкладка">+</button>
     <div class="grow"></div>
+    <span id="dls"></span>
     <span id="engine" class="dot" title="обход"></span>
     <div id="winctl">
       <button data-m="min" class="wb">−</button>
@@ -22,8 +24,14 @@
     </div>
   </div>
   <div id="omnirow">
-    <input id="omni" type="text" spellcheck="false" placeholder="адрес или поиск">
+    <button id="star" class="icn" title="В закладки (Ctrl+D)">☆</button>
+    <div id="omniwrap">
+      <input id="omni" type="text" spellcheck="false" placeholder="адрес или поиск">
+      <span id="cnt"></span>
+    </div>
+    <div id="sug"></div>
   </div>
+  <div id="bmbar"></div>
   <script src="app.js"></script>
 </body>
 </html>

@@ -57,16 +57,17 @@ html, body {
   background: transparent;
   color: var(--dim);
   border-radius: 8px;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
 }
 .icn:hover { background: var(--pill-hover); color: var(--txt); }
+.icn.on { color: var(--accent); }
 
 #tabs {
   display: flex;
   gap: 4px;
-  max-width: 46vw;
+  max-width: 44vw;
   overflow: hidden;
   -webkit-app-region: no-drag;
 }
@@ -74,7 +75,7 @@ html, body {
 .tab {
   position: relative;
   flex: 0 1 auto;
-  min-width: 90px;
+  min-width: 80px;
   max-width: 190px;
   height: 32px;
   display: flex;
@@ -104,6 +105,11 @@ html, body {
   background: var(--accent);
   opacity: 0.85;
 }
+.tab img {
+  width: 15px; height: 15px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+}
 .tab .title { overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .tab .x {
   width: 18px; height: 18px;
@@ -114,7 +120,7 @@ html, body {
   flex: 0 0 auto;
   visibility: hidden;
 }
-.tab:hover .x, .tab.on:hover .x { visibility: visible; }
+.tab:hover .x { visibility: visible; }
 .tab .x:hover { background: rgba(255,255,255,0.12); color: #fff; }
 .tab.ld .title { opacity: 0.55; }
 
@@ -130,6 +136,12 @@ html, body {
 .add:hover { border-color: var(--accent); color: var(--txt); }
 
 .grow { flex: 1; }
+
+#dls {
+  color: var(--dim);
+  font-size: 12px;
+  margin-right: 4px;
+}
 
 .dot {
   width: 8px; height: 8px;
@@ -160,15 +172,30 @@ html, body {
 #omnirow {
   position: fixed;
   inset: 52px 0 auto 0;
+  height: 44px;
   display: flex;
-  justify-content: center;
-  padding: 6px 12px 2px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
   background: var(--bar2);
 }
 
+#star { margin-left: auto; }
+
+#omniwrap {
+  position: relative;
+  flex: 1;
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.omni-hidden { display: none; }
+
 #omni {
-  width: min(640px, 90%);
-  height: 36px;
+  width: 100%;
+  height: 34px;
   padding: 0 14px;
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -185,3 +212,70 @@ html, body {
   background: rgba(255,255,255,0.08);
   box-shadow: 0 0 0 3px rgba(138, 123, 255, 0.12);
 }
+
+#cnt {
+  position: absolute;
+  right: 10px;
+  color: var(--dim);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+#sug {
+  display: none;
+  position: fixed;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, 90%);
+  background: var(--bar2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  z-index: 10;
+}
+#sug.show { display: block; }
+.sugit {
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 12.5px;
+}
+.sugit:hover { background: var(--pill-hover); }
+.sugit .t { color: var(--txt); margin-right: 8px; }
+.sugit .u { color: var(--dim); }
+.sugit .b { color: var(--accent); font-size: 10px; margin-right: 6px; }
+
+#bmbar {
+  position: fixed;
+  inset: 96px 0 auto 0;
+  height: 34px;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: var(--bar2);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+#bmbar.show { display: flex; }
+.bmi {
+  flex: 0 0 auto;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 9px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.bmi:hover { background: var(--pill-hover); color: var(--txt); }

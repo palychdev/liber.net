@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>История — Liber</title>
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <div class="wrap">
+    <h2>История</h2>
+    <div class="sub">записывается только http/https</div>
+    <div class="row">
+      <button id="clr" class="btn danger">очистить всё</button>
+    </div>
+    <div id="list"></div>
+  </div>
+  <script>
+    const listEl = document.getElementById('list')
+    const P = window.liberPage
+
+    function when(ts) {
+      const d = new Date(ts)
+      const td = new Date()
+      const same = d.toDateString() === td.toDateString()
+      const t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      return (same ? '' : d.toLocaleDateString() + ' ') + t
+    }
+
+    async function render() {
+      const items = await P.hist()
+      if (!items.length) {
+        listEl.innerHTML = '<div class="empty">пусто</div>'
+        return
+      }
+      listEl.replaceChildren(...items.map(it => {
+        const d = document.createElement('div')
+        d.className = 'item'
+        const tx = document.createElement('div')
+        tx.className = 'tx'
+        const a = document.createElement('a')
+        a.href = it.url
+        a.textContent = it.title || it.url
+        const u = document.createElement('div')
+        u.className = 'u'
+        u.textContent = it.url
+        tx.append(a, u)
+        const w = document.createElement('span')
+        w.className = 'when'
+        w.textContent = when(it.date)
+        const del = document.createElement('button')
+        del.className = 'del'
+        del.textContent = '✕'
+        del.addEventListener('click', async () => {
+          await P.histRemove(it.url)
+          render()
+        })
+        d.append(tx, w, del)
+        return d
+      }))
+    }
+
+    document.getElementById('clr').addEventListener('click', async () => {
+      await P.histClear()
+      render()
+    })
+
+    render()
+  </script>
+</body>
+</html>

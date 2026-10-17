@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Liber</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 92vh;
+      background: #0b0c10;
+      color: #e7e7ea;
+      font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+      text-align: center;
+      padding: 24px;
+    }
+    .code { color: #565863; font-size: 12px; letter-spacing: 1px; }
+    h2 { font-size: 22px; font-weight: 600; margin: 10px 0 6px; }
+    .hint { color: #8b8d97; font-size: 13.5px; max-width: 520px; }
+    .u {
+      margin: 18px auto 4px;
+      max-width: 640px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #565863;
+      font-size: 12px;
+    }
+    a.retry {
+      display: inline-block;
+      margin-top: 22px;
+      padding: 9px 26px;
+      border-radius: 11px;
+      text-decoration: none;
+      color: #fff;
+      background: linear-gradient(180deg, #8a7bff, #6f5eea);
+      font-size: 14px;
+    }
+    a.retry:hover { filter: brightness(1.1); }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="code" id="code"></div>
+    <h2>страница не открылась</h2>
+    <div class="hint">если повторяется — канал режется сильнее обычного. попробуй позже.</div>
+    <div class="u" id="url"></div>
+    <a class="retry" id="retry">попробовать ещё раз</a>
+  </div>
+  <script>
+    const p = new URLSearchParams(location.search)
+    const u = p.get('u') || ''
+    document.getElementById('code').textContent = 'ошибка ' + (p.get('c') || '')
+    document.getElementById('url').textContent = u
+    const r = document.getElementById('retry')
+    r.href = u
+    r.textContent = 'попробовать ещё раз'
+  </script>
+</body>
+</html>

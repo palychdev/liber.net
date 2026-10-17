@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Закладки — Liber</title>
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <div class="wrap">
+    <h2>Закладки</h2>
+    <div class="sub">добавляются через ☆ в адресной строке или Ctrl+D</div>
+    <div id="list"></div>
+  </div>
+  <script>
+    const listEl = document.getElementById('list')
+    const P = window.liberPage
+
+    async function render() {
+      const items = await P.bms()
+      if (!items.length) {
+        listEl.innerHTML = '<div class="empty">пусто. жми ☆ на любой странице</div>'
+        return
+      }
+      listEl.replaceChildren(...items.map(it => {
+        const d = document.createElement('div')
+        d.className = 'item'
+        const tx = document.createElement('div')
+        tx.className = 'tx'
+        const a = document.createElement('a')
+        a.href = it.url
+        a.textContent = it.title || it.url
+        const u = document.createElement('div')
+        u.className = 'u'
+        u.textContent = it.url
+        tx.append(a, u)
+        const del = document.createElement('button')
+        del.className = 'del'
+        del.textContent = '✕'
+        del.addEventListener('click', async () => {
+          await P.bmRemove(it.url)
+          render()
+        })
+        d.append(tx, del)
+        return d
+      }))
+    }
+
+    render()
+  </script>
+</body>
+</html>
