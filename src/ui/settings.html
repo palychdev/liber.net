@@ -14,12 +14,7 @@
       <h3>Основное</h3>
       <div class="kv">
         <span class="k">поисковик</span>
-        <select id="search">
-          <option value="ddg">duckduckgo</option>
-          <option value="google">google</option>
-          <option value="yandex">яндекс</option>
-          <option value="bing">bing</option>
-        </select>
+        <select id="search"></select>
       </div>
       <div class="kv">
         <span class="k">домашняя страница</span>
@@ -39,6 +34,29 @@
         <label><input id="restore" type="checkbox"> восстанавливать вкладки при запуске</label>
       </div>
       <div class="hint" id="saved"></div>
+    </div>
+
+    <div class="card">
+      <h3>Поисковики</h3>
+      <div class="about">свой поисковик задаётся адресом, где <b>%s</b> — место запроса. ярлык работает в омнибоксе: наберите <b>d котики</b> и поиск уйдёт в поисковик с ярлыком d, не меняя основной.</div>
+      <div id="englist"></div>
+      <div class="kv">
+        <span class="k">название</span>
+        <input id="englabel" type="text" placeholder="startpage" spellcheck="false">
+      </div>
+      <div class="kv">
+        <span class="k">ярлык</span>
+        <input id="engkey" type="text" placeholder="s" spellcheck="false">
+      </div>
+      <div class="kv">
+        <span class="k">адрес</span>
+        <input id="engurl" type="text" placeholder="https://www.startpage.com/sp/search?query=%s" spellcheck="false">
+      </div>
+      <div class="kv">
+        <span class="k"></span>
+        <button class="mini" id="engsave">добавить поисковик</button>
+      </div>
+      <div class="hint" id="engres"></div>
     </div>
 
     <div class="card">
@@ -133,8 +151,63 @@
       flash.t = setTimeout(() => { $('saved').textContent = '' }, 1600)
     }
 
+    let engEdit = null
+
+    function fillSearch(list) {
+      const sel = $('search')
+      sel.replaceChildren(...list.map(e => {
+        const o = document.createElement('option')
+        o.value = e.id
+        o.textContent = e.label
+        return o
+      }))
+    }
+
+    function engRow(e) {
+      const d = document.createElement('div')
+      d.className = 'kv'
+      const k = document.createElement('span')
+      k.className = 'k'
+      k.textContent = e.label + (e.builtin ? ' · встроенный' : '')
+      const v = document.createElement('span')
+      v.className = 'v'
+      v.textContent = (e.keyword ? e.keyword + ' → ' : '') + e.url
+      d.append(k, v)
+      if (!e.builtin) {
+        const edit = document.createElement('button')
+        edit.className = 'mini'
+        edit.textContent = 'изменить'
+        edit.addEventListener('click', () => {
+          engEdit = e.id
+          $('englabel').value = e.label
+          $('engkey').value = e.keyword || ''
+          $('engurl').value = e.url
+          $('engsave').textContent = 'сохранить'
+          $('engres').textContent = 'правка: ' + e.label
+        })
+        const del = document.createElement('button')
+        del.className = 'mini danger'
+        del.textContent = 'удалить'
+        del.addEventListener('click', async () => {
+          await P.engDel(e.id)
+          engEdit = null
+          $('engsave').textContent = 'добавить поисковик'
+          $('engres').textContent = 'поисковик удалён'
+          await load()
+        })
+        d.append(edit, del)
+      }
+      return d
+    }
+
+    function loadEng(list) {
+      $('englist').replaceChildren(...list.map(engRow))
+    }
+
     async function load() {
       const s = await P.stGet()
+      fillSearch(s.engines || [])
+      loadEng(s.engines || [])
       $('search').value = s.search
       $('home').value = s.homepage
       $('dldir').textContent = s.downloadsDir
@@ -339,6 +412,22 @@
     $('clAll').addEventListener('click', async () => {
       await P.clearData({ history: true, cache: true, site: true })
       $('cleared').textContent = 'всё очищено'
+    })
+
+    $('engsave').addEventListener('click', async () => {
+      const res = await P.engSave({ id: engEdit, label: $('englabel').value, keyword: $('engkey').value, url: $('engurl').value })
+      if (!res) {
+        $('engres').textContent = 'не сохранилось: в адресе нужен %s вместо запроса, а ярлык не должен совпадать с другим'
+        return
+      }
+      const wasEdit = !!engEdit
+      engEdit = null
+      $('engsave').textContent = 'добавить поисковик'
+      $('englabel').value = ''
+      $('engkey').value = ''
+      $('engurl').value = ''
+      $('engres').textContent = wasEdit ? 'сохранено' : 'поисковик добавлен'
+      await load()
     })
 
     $('sradd').addEventListener('click', () => {

@@ -12,10 +12,10 @@ const SUG_H = 160
 const ENGINE_PORT = 1079
 const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 const ENGINES = {
-  ddg: { label: 'duckduckgo', url: 'https://duckduckgo.com/?q=%s' },
-  google: { label: 'google', url: 'https://www.google.com/search?q=%s' },
-  yandex: { label: 'яндекс', url: 'https://yandex.ru/search/?text=%s' },
-  bing: { label: 'bing', url: 'https://www.bing.com/search?q=%s' },
+  ddg: { label: 'duckduckgo', url: 'https://duckduckgo.com/?q=%s', keyword: 'd' },
+  google: { label: 'google', url: 'https://www.google.com/search?q=%s', keyword: 'g' },
+  yandex: { label: 'яндекс', url: 'https://yandex.ru/search/?text=%s', keyword: 'y' },
+  bing: { label: 'bing', url: 'https://www.bing.com/search?q=%s', keyword: 'b' },
 }
 const PAGES = ['start', 'hist', 'bms', 'settings', 'dls']
 const INDEX = path.join(__dirname, 'ui', 'index.html')
@@ -34,6 +34,8 @@ let focusedW = null
 const data = storage.load()
 const settings = Object.assign({ search: 'ddg', homepage: '', downloadDir: '', bmBar: true, restore: true, zoom: {} }, data.settings || {})
 data.settings = settings
+data.engines = Array.isArray(data.engines) ? data.engines.filter(e => e && typeof e.id === 'string' && typeof e.url === 'string' && e.url.includes('%s')) : []
+const userEngines = data.engines
 data.siteRules = data.siteRules && typeof data.siteRules === 'object' ? data.siteRules : {}
 const siteRules = data.siteRules
 const adblock = new Adblock()
@@ -93,8 +95,64 @@ function wOfEvent(e) {
   return winBySender(e.sender) || W_ofTab(wcToTab(e.sender))
 }
 
+function engineById(id) {
+  if (ENGINES[id]) return ENGINES[id]
+  return userEngines.find(e => e.id === id) || null
+}
+
 function engine() {
-  return ENGINES[settings.search] || ENGINES.ddg
+  return engineById(settings.search) || ENGINES.ddg
+}
+
+function engList() {
+  const out = []
+  for (const id of Object.keys(ENGINES)) {
+    out.push({ id, label: ENGINES[id].label, url: ENGINES[id].url, keyword: ENGINES[id].keyword || '', builtin: true })
+  }
+  for (const e of userEngines) out.push({ id: e.id, label: e.label, url: e.url, keyword: e.keyword || '', builtin: false })
+  return out
+}
+
+function keywordEngine(word) {
+  const w = String(word || '').toLowerCase()
+  if (!w) return null
+  for (const id of Object.keys(ENGINES)) {
+    if ((ENGINES[id].keyword || '').toLowerCase() === w) return ENGINES[id]
+  }
+  return userEngines.find(e => (e.keyword || '').toLowerCase() === w) || null
+}
+
+function engSave(p) {
+  if (!p || typeof p !== 'object') return null
+  const label = String(p.label || '').trim().slice(0, 40)
+  const url = String(p.url || '').trim()
+  const keyword = String(p.keyword || '').trim().toLowerCase().replace(/\s+/g, '')
+  if (!label || !/^https?:\/\/.+/i.test(url) || !url.includes('%s')) return null
+  const cur = p.id ? userEngines.find(e => e.id === p.id) : null
+  const taken = keywordEngine(keyword)
+  if (keyword && taken && (!cur || taken !== cur)) return null
+  if (cur) {
+    cur.label = label
+    cur.url = url
+    cur.keyword = keyword
+  } else {
+    userEngines.push({ id: 'u' + Date.now().toString(36) + Math.floor(Math.random() * 4096).toString(36), label, url, keyword })
+  }
+  storage.save(data)
+  return engList()
+}
+
+function engDel(id) {
+  const i = userEngines.findIndex(e => e.id === id)
+  if (i >= 0) {
+    userEngines.splice(i, 1)
+    if (settings.search === id) {
+      settings.search = 'ddg'
+      sendSettings()
+    }
+    storage.save(data)
+  }
+  return engList()
 }
 
 function bmVisible() {
@@ -117,6 +175,11 @@ function activeTab(w) {
 function toUrl(q) {
   const s = (q || '').trim()
   if (!s) return null
+  const kw = s.match(/^(\S+)\s+([\s\S]+)$/)
+  if (kw) {
+    const e = keywordEngine(kw[1])
+    if (e) return e.url.replace('%s', encodeURIComponent(kw[2].trim()))
+  }
   if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return s
   if (/^[a-z0-9.-]+\.[a-z]{2,}(:\d+)?([/?#]|$)/i.test(s)) return 'https://' + s
   if (/^localhost(:\d+)?([/?#]|$)/i.test(s)) return 'http://' + s
@@ -281,7 +344,7 @@ function recordHistory(url, title, w) {
 
 function applySettings(patch) {
   if (!patch || typeof patch !== 'object') return
-  if (typeof patch.search === 'string' && ENGINES[patch.search]) settings.search = patch.search
+  if (typeof patch.search === 'string' && engineById(patch.search)) settings.search = patch.search
   if (typeof patch.homepage === 'string') settings.homepage = patch.homepage.trim()
   if (typeof patch.downloadDir === 'string') settings.downloadDir = patch.downloadDir
   if (typeof patch.bmBar === 'boolean') settings.bmBar = patch.bmBar
@@ -1579,8 +1642,12 @@ ipcMain.handle('ads:refresh', () => loadFilters(true))
 ipcMain.handle('sr:list', () => srList())
 ipcMain.handle('sr:set', (e, host, patch) => srSend(host, patch))
 ipcMain.handle('sr:del', (e, host) => { srDel(host); return true })
+ipcMain.handle('eng:list', () => engList())
+ipcMain.handle('eng:save', (e, p) => engSave(p))
+ipcMain.handle('eng:del', (e, id) => engDel(id))
 ipcMain.handle('st:get', () => ({
   search: settings.search,
+  engines: engList(),
   homepage: settings.homepage,
   bmBar: settings.bmBar,
   restore: settings.restore,
@@ -1969,7 +2036,7 @@ if (!lock) {
       const srId = newTab(internalPage('settings'), w0)
       await wait(1300)
       const srTab = w0.tabs[w0.tabs.length - 1]
-      console.log('ST sr ui:', await srTab.view.webContents.executeJavaScript(`JSON.stringify({ rows: document.querySelectorAll('#srlist .srrow').length, host: (document.querySelector('#srlist .srrow .k') || {}).textContent || '', sum: ((document.querySelector('#srlist .srrow .v') || {}).textContent || '').slice(0, 60), als: !!document.getElementById('adblock') })`))
+      console.log('ST sr ui:', await srTab.view.webContents.executeJavaScript(`JSON.stringify({ rows: document.querySelectorAll('#srlist .srrow').length, host: (document.querySelector('#srlist .srrow .k') || {}).textContent || '', sum: ((document.querySelector('#srlist .srrow .v') || {}).textContent || '').slice(0, 60), als: !!document.getElementById('adblock'), engsel: document.querySelectorAll('#search option').length, engrows: document.querySelectorAll('#englist .kv').length })`))
       closeTab(w0, srId)
       await wait(400)
       switchTab(w0, w0.tabs.find(t => t.view.webContents === wc0).id)
@@ -1983,6 +2050,18 @@ if (!lock) {
       console.log('ST sr rules roundtrip:', JSON.stringify(srSend('a.example.com', { js: 'deny' })), JSON.stringify(srList()), (srDel('a.example.com'), JSON.stringify(srList())))
       await clearTestCookies()
       srv.close()
+      console.log('ST engines:')
+      console.log('ST eng base:', JSON.stringify(engList().map(e => e.id + (e.builtin ? '*' : ''))), '| d ->', keywordEngine('d') ? keywordEngine('d').label : '-')
+      console.log('ST eng keyword url:', toUrl('d котики'))
+      console.log('ST eng rejects:', engSave({ label: 'x', url: 'https://x.com/search' }) === null, engSave({ label: 'y', url: 'https://y.com/s?q=%s', keyword: 'g' }) === null)
+      engSave({ label: 'startpage', url: 'https://www.startpage.com/sp/search?query=%s', keyword: 's' })
+      const cust = engList().find(e => !e.builtin)
+      console.log('ST eng added:', JSON.stringify(cust), '| url:', toUrl('s привет мир'))
+      engSave({ id: cust.id, label: 'startpage eu', url: 'https://eu.startpage.com/sp/search?query=%s', keyword: 's' })
+      console.log('ST eng edited:', JSON.stringify(engList().find(e => !e.builtin)))
+      applySettings({ search: cust.id })
+      console.log('ST eng default:', engine().label, settings.search === cust.id, toUrl('котики').slice(0, 45))
+      console.log('ST eng removed:', JSON.stringify(engDel(cust.id).map(e => e.id)), '| default now:', settings.search, '| stored:', data.engines.length)
       console.log('ST sqlite:', (() => { try { require('node:sqlite'); return 'yes' } catch (_) { return 'no' } })())
       console.log('ST passwords:')
       pwSave('example.com', 'user1', 'secret1')

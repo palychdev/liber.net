@@ -125,5 +125,8 @@ if (location.protocol === 'file:' || location.protocol === 'liber:') {
     srList: () => ipcRenderer.invoke('sr:list'),
     srSet: (host, patch) => ipcRenderer.invoke('sr:set', host, patch),
     srDel: host => ipcRenderer.invoke('sr:del', host),
+    engList: () => ipcRenderer.invoke('eng:list'),
+    engSave: p => ipcRenderer.invoke('eng:save', p),
+    engDel: id => ipcRenderer.invoke('eng:del', id),
   })
 }
