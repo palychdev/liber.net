@@ -70,6 +70,22 @@ if (location.protocol === 'https:' || location.protocol === 'http:') {
     const a = readerArticle()
     if (a) ipcRenderer.send('reader-open', a)
   })
+  let cosmeticStyle = null
+  const applyCosmetic = () => {
+    ipcRenderer.invoke('ads:cosmetic', location.hostname).then(css => {
+      if (!css) return
+      try {
+        if (!cosmeticStyle) {
+          cosmeticStyle = document.createElement('style')
+          ;(document.head || document.documentElement).appendChild(cosmeticStyle)
+        }
+        if (cosmeticStyle.textContent !== css) cosmeticStyle.textContent = css
+      } catch (_) {}
+    }).catch(() => {})
+  }
+  if (document.documentElement) applyCosmetic()
+  else document.addEventListener('DOMContentLoaded', applyCosmetic, { once: true })
+  ipcRenderer.on('ads:cosmetic-refresh', applyCosmetic)
 }
 
 if (location.protocol === 'file:' || location.protocol === 'liber:') {
@@ -104,5 +120,7 @@ if (location.protocol === 'file:' || location.protocol === 'liber:') {
     pwDel: (host, user) => ipcRenderer.invoke('pw:del', host, user),
     readerGet: id => ipcRenderer.invoke('reader:get', id),
     readerBack: () => ipcRenderer.invoke('reader:back'),
+    adsStats: () => ipcRenderer.invoke('ads:stats'),
+    adsRefresh: () => ipcRenderer.invoke('ads:refresh'),
   })
 }

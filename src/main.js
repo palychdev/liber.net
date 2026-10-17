@@ -3,6 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const bypass = require('./bypass')
 const storage = require('./storage')
+const { Adblock, regDomain } = require('./adblock')
 
 const BAR_H = 52
 const OMNI_H = 44
@@ -33,6 +34,10 @@ let focusedW = null
 const data = storage.load()
 const settings = Object.assign({ search: 'ddg', homepage: '', downloadDir: '', bmBar: true, restore: true, zoom: {} }, data.settings || {})
 data.settings = settings
+data.siteRules = data.siteRules && typeof data.siteRules === 'object' ? data.siteRules : {}
+const siteRules = data.siteRules
+const adblock = new Adblock()
+adblock.on = settings.adblock !== false
 data.bmFolders = Array.isArray(data.bmFolders) ? data.bmFolders : []
 let vault = []
 try {
@@ -281,6 +286,10 @@ function applySettings(patch) {
   if (typeof patch.downloadDir === 'string') settings.downloadDir = patch.downloadDir
   if (typeof patch.bmBar === 'boolean') settings.bmBar = patch.bmBar
   if (typeof patch.restore === 'boolean') settings.restore = patch.restore
+  if (typeof patch.adblock === 'boolean') {
+    settings.adblock = patch.adblock
+    adblock.on = patch.adblock
+  }
   data.settings = settings
   storage.save(data)
   sendSettings()
@@ -936,6 +945,106 @@ function onWillDownload(e, item) {
   })
 }
 
+const FILTER_LISTS = [
+  { id: 'easylist', url: 'https://easylist.to/easylist/easylist.txt' },
+  { id: 'easyprivacy', url: 'https://easylist.to/easylist/easyprivacy.txt' },
+  { id: 'ruadlist', url: 'https://easylist-downloads.adblockplus.org/ruadlist.txt' },
+]
+
+let filterState = 'idle'
+
+function filtersDir() {
+  return path.join(app.getPath('userData'), 'filters')
+}
+
+function siteRule(host) {
+  if (!host) return null
+  const h = String(host).toLowerCase()
+  return siteRules[h] || siteRules[regDomain(h)] || null
+}
+
+function adsAllowed(docUrl) {
+  try {
+    const r = siteRule(new URL(docUrl).hostname)
+    return !!(r && r.ads === false)
+  } catch (_) {
+    return false
+  }
+}
+
+function tabByWcId(id) {
+  for (const w of windows) {
+    for (const t of w.tabs) {
+      try {
+        if (t.view.webContents.id === id) return t
+      } catch (_) {}
+    }
+  }
+  return null
+}
+
+async function fetchFilterList(list) {
+  const dir = filtersDir()
+  try { fs.mkdirSync(dir, { recursive: true }) } catch (_) {}
+  const file = path.join(dir, list.id + '.txt')
+  let stat = null
+  try { stat = fs.statSync(file) } catch (_) {}
+  if (stat && Date.now() - stat.mtimeMs < 5 * 86400000) {
+    try { return fs.readFileSync(file, 'utf8') } catch (_) {}
+  }
+  const s = ses || session.defaultSession
+  try {
+    const res = await s.fetch(list.url, { cache: 'no-store' })
+    if (res.ok) {
+      const text = await res.text()
+      if (text.length > 2000) {
+        try { fs.writeFileSync(file, text) } catch (_) {}
+        return text
+      }
+    }
+  } catch (_) {}
+  try { return fs.readFileSync(file, 'utf8') } catch (_) {}
+  return null
+}
+
+async function loadFilters(force) {
+  if (filterState === 'loading') return adblock.stats()
+  filterState = 'loading'
+  if (force) {
+    try {
+      for (const f of fs.readdirSync(filtersDir())) {
+        if (f.endsWith('.txt')) fs.unlinkSync(path.join(filtersDir(), f))
+      }
+    } catch (_) {}
+  }
+  const texts = []
+  for (const l of FILTER_LISTS) {
+    const t = await fetchFilterList(l)
+    if (t) texts.push(t)
+  }
+  if (!texts.length) {
+    filterState = 'failed'
+    return adblock.stats()
+  }
+  adblock.clear()
+  for (const text of texts) {
+    const lines = text.split('\n')
+    for (let i = 0; i < lines.length; i += 5000) {
+      const end = Math.min(i + 5000, lines.length)
+      for (let j = i; j < end; j++) adblock.addLine(lines[j].trim())
+      if (end < lines.length) await new Promise(r => setImmediate(r))
+    }
+  }
+  adblock.finish()
+  filterState = 'ready'
+  for (const w of windows) {
+    for (const t of w.tabs) {
+      try { t.view.webContents.send('ads:cosmetic-refresh') } catch (_) {}
+    }
+  }
+  return adblock.stats()
+}
+
 function setupSession(s) {
   const ALLOW = new Set(['media', 'fullscreen', 'pointerLock', 'notifications', 'clipboard-read', 'clipboard-sanitized-write', 'geolocation', 'display-capture'])
   s.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOW.has(permission)))
@@ -946,6 +1055,17 @@ function setupSession(s) {
       .catch(() => cb({}))
   })
   s.on('will-download', onWillDownload)
+  s.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, cb) => {
+    if (details.resourceType === 'mainFrame' || !adblock.ready || !adblock.on) return cb({})
+    let doc = ''
+    try { doc = details.frame ? details.frame.url : '' } catch (_) {}
+    if (!doc) {
+      const t = tabByWcId(details.webContentsId)
+      if (t) doc = t.url
+    }
+    if (doc && adsAllowed(doc)) return cb({})
+    cb(adblock.check(details.url, details.resourceType, doc) ? { cancel: true } : {})
+  })
 }
 
 function createWindow(opts) {
@@ -1291,11 +1411,23 @@ ipcMain.handle('tab:translate', (e) => {
   const t = w && activeTab(w)
   if (t && /^https?:/i.test(t.url)) newTab(translateUrl(t.url), w)
 })
+ipcMain.handle('ads:cosmetic', (e, host) => {
+  if (!adblock.ready || !adblock.on) return ''
+  const t = wcToTab(e.sender)
+  if (t && adsAllowed(t.url)) return ''
+  return adblock.cosmeticFor(host)
+})
+ipcMain.handle('ads:stats', () => adblock.stats())
+ipcMain.handle('ads:refresh', () => loadFilters(true))
 ipcMain.handle('st:get', () => ({
   search: settings.search,
   homepage: settings.homepage,
   bmBar: settings.bmBar,
   restore: settings.restore,
+  adblock: adblock.on,
+  blocked: adblock.blocked,
+  filterState,
+  rules: adblock.rules,
   downloadsDir: dlDirOf(),
   engine: bypass.status(),
   version: app.getVersion(),
@@ -1378,6 +1510,7 @@ if (!lock) {
     liveSessions.add(ses)
     applyProxyTo(ses, false)
     bypass.start(on => applyProxyAll(on))
+    if (adblock.on) loadFilters(false).catch(() => {})
 
     const saved = Array.isArray(data.windows) && data.windows.length
       ? data.windows
@@ -1610,6 +1743,27 @@ if (!lock) {
       } else {
         console.log('ST import: no profile found')
       }
+      console.log('ST adblock:')
+      const abT0 = Date.now()
+      while (!adblock.ready && Date.now() - abT0 < 90000) await wait(1000)
+      console.log('ST ab wait ms:', Date.now() - abT0, 'ready:', adblock.ready, 'state:', filterState, 'rules:', adblock.rules)
+      console.log('ST ab checks:', JSON.stringify({
+        ga: adblock.check('https://www.google-analytics.com/analytics.js', 'script', 'https://example.com/'),
+        dbl: adblock.check('https://ad.doubleclick.net/ddm/ad/N1', 'xhr', 'https://example.com/'),
+        yandex: adblock.check('https://an.yandex.ru/meta/123', 'script', 'https://example.com/'),
+        clean: adblock.check('https://cdn.example.com/app.js', 'script', 'https://example.com/'),
+        frame: adblock.check('https://example.com/', 'mainFrame', 'https://example.com/'),
+        parse: adblock.check('http://example.com/x', 'image', 'not-a-url'),
+      }))
+      await wc0.loadURL('https://example.com/')
+      await wait(1800)
+      const abBefore = adblock.blocked
+      await wc0.executeJavaScript(`(() => { const i = document.createElement('img'); i.src = 'https://counter.yadro.ru/hit?t1'; document.body.appendChild(i); const s = document.createElement('script'); s.src = 'https://mc.yandex.ru/metrika/tag.js'; document.body.appendChild(s); return 1 })()`)
+      await wait(2500)
+      console.log('ST ab live:', adblock.blocked - abBefore, JSON.stringify(adblock.stats().top.slice(0, 3)))
+      const abSel = (adblock.block.cosmeticGeneric.find(s => /^\.[a-z][a-z0-9_-]{2,30}$/i.test(s)) || '').slice(1)
+      const abCss = await wc0.executeJavaScript(`JSON.stringify({ styles: document.querySelectorAll('style').length, sel: ${JSON.stringify(abSel)}, disp: (() => { if (!${JSON.stringify(abSel)}) return 'nosel'; const el = document.createElement('div'); el.className = ${JSON.stringify(abSel)}; document.body.appendChild(el); const d = getComputedStyle(el).display; el.remove(); return d })() })`)
+      console.log('ST ab cosmetic:', abCss)
       console.log('ST sqlite:', (() => { try { require('node:sqlite'); return 'yes' } catch (_) { return 'no' } })())
       console.log('ST passwords:')
       pwSave('example.com', 'user1', 'secret1')

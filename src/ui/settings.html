@@ -63,6 +63,25 @@
     </div>
 
     <div class="card">
+      <h3>Блокировка рекламы</h3>
+      <div class="kv">
+        <span class="k">фильтры</span>
+        <label><input id="adblock" type="checkbox"> блокировать рекламу и трекеры</label>
+      </div>
+      <div class="kv">
+        <span class="k">статистика</span>
+        <span class="v" id="abs">…</span>
+      </div>
+      <div class="kv">
+        <span class="k">списки</span>
+        <button class="mini" id="abrefresh">обновить сейчас</button>
+        <span class="v" id="abres"></span>
+      </div>
+      <div id="abtop"></div>
+      <div class="hint">easylist · easyprivacy · ruadlist. списки скачиваются при первом запуске и обновляются сами раз в 5 дней. скрытие рекламных блоков на страницах включено вместе с фильтрами.</div>
+    </div>
+
+    <div class="card">
       <h3>Импорт из другого браузера</h3>
       <div class="about" id="imp">ищу установленные браузеры…</div>
       <div class="hint" id="impres"></div>
@@ -117,6 +136,28 @@
         'chromium <b>' + s.chrome + '</b> · electron <b>' + s.electron + '</b><br>' +
         '<a href="https://github.com/palychdev/liber.net" id="gh">github.com/palychdev/liber.net</a>'
       $('gh').addEventListener('click', ev => { ev.preventDefault(); P.newTab('https://github.com/palychdev/liber.net') })
+    }
+
+    async function loadAdb() {
+      const s = await P.stGet()
+      $('adblock').checked = s.adblock !== false
+      const st = await P.adsStats()
+      $('abs').textContent = s.filterState === 'ready'
+        ? 'правил ' + st.rules.toLocaleString('ru') + ' · заблокировано ' + st.blocked.toLocaleString('ru')
+        : (s.filterState === 'failed' ? 'списки скачать не удалось' : 'списки загружаются…')
+      $('abtop').replaceChildren(...st.top.map(([host, n]) => {
+        const d = document.createElement('div')
+        d.className = 'kv'
+        const k = document.createElement('span')
+        k.className = 'k'
+        k.textContent = host
+        const v = document.createElement('span')
+        v.className = 'v'
+        v.textContent = n.toLocaleString('ru')
+        d.append(k, v)
+        return d
+      }))
+      return st
     }
 
     async function loadImp() {
@@ -183,6 +224,18 @@
       if (d) { $('dldir').textContent = d; flash('сохранено') }
     })
 
+    $('adblock').addEventListener('change', async () => {
+      await P.stSet({ adblock: $('adblock').checked })
+      flash('сохранено')
+      loadAdb()
+    })
+    $('abrefresh').addEventListener('click', async () => {
+      $('abres').textContent = 'качаю списки…'
+      const st = await P.adsRefresh()
+      await loadAdb()
+      $('abres').textContent = st.ready ? 'обновлено' : 'не вышло — оставил прошлые списки'
+    })
+
     $('def').addEventListener('click', async () => {
       await P.setDefault()
       flash('windows откроет список приложений')
@@ -199,6 +252,7 @@
     load()
     loadImp()
     loadPw()
+    loadAdb()
   </script>
 </body>
 </html>
