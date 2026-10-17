@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const { app } = require('electron')
 
-const DEFAULTS = { windows: [], bookmarks: [], history: [], downloads: [], settings: {} }
+const DEFAULTS = { windows: [], bookmarks: [], bmFolders: [], history: [], downloads: [], settings: {} }
 
 function file() {
   return path.join(app.getPath('userData'), 'state.json')

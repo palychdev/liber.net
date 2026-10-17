@@ -31,6 +31,7 @@ let focusedW = null
 const data = storage.load()
 const settings = Object.assign({ search: 'ddg', homepage: '', downloadDir: '', bmBar: true, restore: true, zoom: {} }, data.settings || {})
 data.settings = settings
+data.bmFolders = Array.isArray(data.bmFolders) ? data.bmFolders : []
 const dls = []
 const dlItems = new Map()
 let dlSeq = 0
@@ -188,7 +189,44 @@ function sendState(w) {
 }
 
 function sendBm() {
-  eachW(w => w.win.webContents.send('bm', data.bookmarks))
+  eachW(w => w.win.webContents.send('bm', bmPayload()))
+}
+
+function bmPayload() {
+  return { items: data.bookmarks, folders: data.bmFolders }
+}
+
+function bmFolderAdd(name) {
+  const f = String(name || '').trim()
+  if (!f || data.bmFolders.includes(f)) return bmPayload()
+  data.bmFolders.push(f)
+  storage.save(data)
+  sendBm()
+  eachW(applyLayout)
+  bcast()
+  return bmPayload()
+}
+
+function bmFolderDel(name) {
+  data.bmFolders = data.bmFolders.filter(f => f !== name)
+  for (const b of data.bookmarks) if (b.folder === name) delete b.folder
+  storage.save(data)
+  sendBm()
+  eachW(applyLayout)
+  bcast()
+  return bmPayload()
+}
+
+function bmMove(url, folder) {
+  const b = data.bookmarks.find(x => x.url === url)
+  if (!b) return bmPayload()
+  const f = String(folder || '').trim()
+  if (!f) delete b.folder
+  else b.folder = f
+  storage.save(data)
+  sendBm()
+  bcast()
+  return bmPayload()
 }
 
 function persist() {
@@ -831,7 +869,7 @@ ipcMain.handle('chrome', (e, on) => {
   w.expanded = !!on
   applyLayout(w)
 })
-ipcMain.handle('b:list', () => data.bookmarks)
+ipcMain.handle('b:list', () => bmPayload())
 ipcMain.handle('b:remove', (e, url) => {
   const i = bmIndex(url)
   if (i >= 0) {
@@ -841,7 +879,11 @@ ipcMain.handle('b:remove', (e, url) => {
     eachW(applyLayout)
     bcast()
   }
+  return bmPayload()
 })
+ipcMain.handle('bf:add', (e, name) => bmFolderAdd(name))
+ipcMain.handle('bf:del', (e, name) => bmFolderDel(name))
+ipcMain.handle('b:move', (e, url, folder) => bmMove(url, folder))
 ipcMain.handle('h:list', (e, n) => data.history.slice(0, n))
 ipcMain.handle('h:remove', (e, url) => {
   data.history = data.history.filter(x => x.url !== url)
@@ -1138,6 +1180,8 @@ if (!lock) {
       await js(`window.liber.page('settings')`)
       await wait(900)
       console.log('ST settings url:', w0.tabs[w0.tabs.length - 1].url)
+      const stTab = w0.tabs[w0.tabs.length - 1]
+      console.log('ST settings cards:', await stTab.view.webContents.executeJavaScript(`JSON.stringify({ imp: !!document.getElementById('imp'), impText: (document.getElementById('imp').textContent || '').slice(0, 30), impRows: document.querySelectorAll('#imp .kv').length, pwcount: document.getElementById('pwcount').textContent })`))
       await js(`(function(){ document.querySelectorAll('.tab')[0].click(); return 1 })()`)
       await wait(500)
       console.log('ST lock icon:', await js(`(() => { const l = document.getElementById('lock'); return l ? l.title + '|' + l.textContent : 'none' })()`))
@@ -1172,6 +1216,23 @@ if (!lock) {
       await wait(500)
       console.log('ST tsearch state:', await js(`JSON.stringify({ cls: document.getElementById('tsearch').className, rows: document.querySelectorAll('.tsrow').length })`))
       await js(`document.getElementById('tsearch').classList.remove('show')`)
+      console.log('ST bookmark folders:')
+      toggleBm('https://liber.net/folder-test', 'folder test')
+      const oneBm = data.bookmarks.find(b => b.url === 'https://liber.net/folder-test')
+      bmFolderAdd('test-folder')
+      bmMove(oneBm.url, 'test-folder')
+      console.log('ST folder move:', String(oneBm.folder), 'folders:', JSON.stringify(data.bmFolders))
+      console.log('ST bms page:')
+      await js(`window.liber.page('bms')`)
+      await wait(800)
+      const bmsTab = w0.tabs[w0.tabs.length - 1]
+      console.log('ST bms ui:', await bmsTab.view.webContents.executeJavaScript(`JSON.stringify({ side: document.querySelectorAll('.fbtn').length, sels: document.querySelectorAll('.mini-sel').length, rows: document.querySelectorAll('.item').length })`))
+      closeTab(w0, bmsTab.id)
+      await wait(400)
+      bmFolderDel('test-folder')
+      console.log('ST folder del:', JSON.stringify(data.bmFolders), 'item folder:', String(oneBm.folder))
+      toggleBm('https://liber.net/folder-test')
+      console.log('ST folder cleanup bm:', data.bookmarks.length)
       persist()
       const saved = storage.load()
       console.log('ST persisted windows:', JSON.stringify((saved.windows || []).map(w => w.tabs.length)))

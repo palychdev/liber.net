@@ -32,6 +32,7 @@ window.addEventListener('error', e => {
 
 let state = null
 let bms = []
+let bmf = []
 let settings = { bmBar: true, search: 'ddg', homepage: '' }
 let findMode = false
 let sugTimer = null
@@ -296,18 +297,48 @@ function enterFind() {
   omni.focus()
 }
 
-function renderBm(list) {
-  bms = list
+function renderBm(payload) {
+  if (payload) {
+    if (Array.isArray(payload)) {
+      bms = payload
+      bmf = []
+    } else {
+      bms = payload.items || []
+      bmf = payload.folders || []
+    }
+  }
   const vis = bms.length > 0 && settings.bmBar !== false
   bmbarEl.classList.toggle('show', vis)
   document.body.classList.toggle('hasbm', vis)
-  bmbarEl.replaceChildren(...bms.map(b => {
-    const btn = document.createElement('button')
-    btn.className = 'bmi'
-    btn.textContent = b.title || b.url
-    btn.addEventListener('click', () => window.liber.newTab(b.url))
-    return btn
-  }))
+  const rows = []
+  for (const b of bms.filter(x => !x.folder)) {
+    rows.push(bmButton(b))
+  }
+  for (const f of bmf) {
+    const list = bms.filter(x => x.folder === f)
+    if (!list.length) continue
+    const d = document.createElement('button')
+    d.className = 'bmi fold'
+    d.textContent = '📁 ' + f
+    d.addEventListener('click', e => {
+      e.stopPropagation()
+      showFolder(e.clientX, e.clientY, list)
+    })
+    rows.push(d)
+  }
+  bmbarEl.replaceChildren(...rows)
+}
+
+function bmButton(b) {
+  const btn = document.createElement('button')
+  btn.className = 'bmi'
+  btn.textContent = b.title || b.url
+  btn.addEventListener('click', () => window.liber.newTab(b.url))
+  return btn
+}
+
+function showFolder(x, y, list) {
+  popMenu(tmenuEl, x, y, list.map(b => ({ label: b.title || b.url, action: () => window.liber.newTab(b.url) })))
 }
 
 function renderLock(a) {
@@ -349,7 +380,7 @@ function render(s) {
 
 window.liber.state(render)
 window.liber.onBm(renderBm)
-window.liber.onSettings(s => { settings = Object.assign(settings, s); renderBm(bms) })
+window.liber.onSettings(s => { settings = Object.assign(settings, s); renderBm() })
 window.liber.onOmni(() => { omni.focus(); omni.select(); querySug() })
 window.liber.onFind(() => enterFind())
 window.liber.onHideSug(() => hideSug())
