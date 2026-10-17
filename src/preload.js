@@ -38,5 +38,6 @@ contextBridge.exposeInMainWorld('liber', {
   stSet: patch => ipcRenderer.invoke('st:set', patch),
   chrome: on => ipcRenderer.invoke('chrome', on),
   full: () => ipcRenderer.invoke('win:full'),
+  reader: () => ipcRenderer.invoke('tab:reader'),
   call: m => ipcRenderer.invoke('win:' + m),
 })

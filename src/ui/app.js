@@ -176,6 +176,7 @@ function showMainMenu(x, y) {
     { label: 'сохранить страницу', hint: 'Ctrl+S', action: () => a && window.liber.save(a.id) },
     { label: 'печать', hint: 'Ctrl+P', action: () => a && window.liber.print(a.id) },
     { label: 'просмотр кода', hint: 'Ctrl+U', action: () => a && window.liber.source(a.id) },
+    { label: 'режим чтения', hint: 'F9', action: () => window.liber.reader() },
     { label: 'свернуть / развернуть масштаб ' + z + '%', disabled: true },
     { label: 'сбросить масштаб', hint: 'Ctrl+0', action: () => a && window.liber.zoom(a.id, 0) },
     null,

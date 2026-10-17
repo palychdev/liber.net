@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, WebContentsView, session, Menu, clipboard, desktopCapturer, shell, dialog, safeStorage } = require('electron')
+const { app, BrowserWindow, ipcMain, WebContentsView, session, Menu, clipboard, desktopCapturer, shell, dialog, safeStorage, protocol } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const bypass = require('./bypass')
@@ -20,6 +20,8 @@ const PAGES = ['start', 'hist', 'bms', 'settings', 'dls']
 const INDEX = path.join(__dirname, 'ui', 'index.html')
 const START_URL = 'file://' + path.join(__dirname, 'ui', 'start.html').replace(/\\/g, '/')
 const ERR_URL = 'file://' + path.join(__dirname, 'ui', 'err.html').replace(/\\/g, '/')
+
+protocol.registerSchemesAsPrivileged([{ scheme: 'liber', privileges: { standard: true, secure: true, supportFetchAPI: true } }])
 
 app.commandLine.appendSwitch('disable-quic')
 
@@ -403,6 +405,7 @@ function handleKeys(wc, event, input, w) {
   if (!input.control) {
     if (key === 'F5') { wc.reload(); event.preventDefault(); return true }
     if (key === 'F6') { focusOmni(w); event.preventDefault(); return true }
+    if (key === 'F9') { readerOf(w); event.preventDefault(); return true }
     if (key === 'F11') { w.win.setFullScreen(!w.win.isFullScreen()); event.preventDefault(); return true }
     if (key === 'Escape' && wc.isLoading()) { wc.stop(); event.preventDefault(); return true }
     return false
@@ -484,7 +487,10 @@ function contextMenu(wc, p, w) {
   items.push({ label: 'обновить', click: () => wc.reload() })
   items.push({ type: 'separator' })
   const u = wc.getURL()
-  if (/^https?:/i.test(u)) items.push({ label: 'просмотр кода страницы', click: () => newTab('view-source:' + u, w) })
+  if (/^https?:/i.test(u)) {
+    items.push({ label: 'просмотр кода страницы', click: () => newTab('view-source:' + u, w) })
+    items.push({ label: 'режим чтения', click: () => wc.send('reader-mode') })
+  }
   items.push({ label: 'сохранить страницу как…', click: () => savePageOf(wc, wcToTab(wc)) })
   items.push({ label: 'печать…', click: () => printOf(wc) })
   items.push({ type: 'separator' })
@@ -832,6 +838,71 @@ function pwSave(host, user, pass) {
   saveVault()
 }
 
+const READER_KEEP = new Set(['p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'em', 'strong', 'b', 'i', 'u', 's', 'a', 'img', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'hr', 'div', 'span', 'cite', 'sub', 'sup'])
+const readerCache = new Map()
+let readerSeq = 0
+
+function sanitizeHtml(html) {
+  return String(html || '')
+    .replace(/<(script|style|iframe|object|embed|svg|math|form|input|button|link|meta|video|audio|source|template)[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<[^>]*>/g, tag => {
+      const m = /^<(\/?)([a-zA-Z0-9]+)[\s\S]*>$/.exec(tag)
+      if (!m) return ''
+      const name = m[2].toLowerCase()
+      if (!READER_KEEP.has(name)) return ''
+      if (m[1]) return '</' + name + '>'
+      if (name === 'a') {
+        const h = /href\s*=\s*("([^"]*)"|'([^']*)')/i.exec(tag)
+        const href = (h && (h[2] || h[3] || '')) || ''
+        return /^https?:/i.test(href) ? '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noreferrer">' : '<a>'
+      }
+      if (name === 'img') {
+        const s = /src\s*=\s*("([^"]*)"|'([^']*)')/i.exec(tag)
+        const src = (s && (s[2] || s[3] || '')) || ''
+        return /^https?:/i.test(src) ? '<img src="' + src.replace(/"/g, '&quot;') + '">' : ''
+      }
+      return '<' + name + '>'
+    })
+    .replace(/(<br\s*\/?>){3,}/gi, '<br><br>')
+}
+
+function openReader(w, t, article) {
+  if (!w || !t || !article || !article.html) return
+  readerSeq += 1
+  readerCache.set(readerSeq, {
+    url: t.url,
+    title: article.title || t.title || t.url,
+    html: sanitizeHtml(article.html),
+    date: Date.now(),
+  })
+  if (readerCache.size > 20) {
+    let oldest = null
+    for (const [k, v] of readerCache) if (!oldest || v.date < readerCache.get(oldest).date) oldest = k
+    if (oldest) readerCache.delete(oldest)
+  }
+  newTab('liber://reader?id=' + readerSeq, w)
+}
+
+function attachLiber(s) {
+  try {
+    s.protocol.handle('liber', req => {
+      let name = ''
+      try { name = new URL(req.url).hostname } catch (_) {}
+      if (!/^[a-z][a-z0-9-]*$/.test(name)) name = 'start'
+      let body = null
+      try { body = fs.readFileSync(path.join(__dirname, 'ui', name + '.html')) } catch (_) {}
+      if (!body) return new Response('', { status: 404 })
+      return new Response(body, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+    })
+  } catch (_) {}
+  return s
+}
+
+function readerOf(w) {
+  const t = activeTab(w)
+  if (t && /^https?:/i.test(t.url)) t.view.webContents.send('reader-mode')
+}
+
 function onWillDownload(e, item) {
   const f = uniquePath(dlDirOf(), item.getFilename())
   item.setSavePath(f)
@@ -879,6 +950,7 @@ function createWindow(opts) {
     : ses
   if (o.private) {
     setupSession(s)
+    attachLiber(s)
     liveSessions.add(s)
     applyProxyTo(s, bypass.status())
   }
@@ -1187,6 +1259,28 @@ ipcMain.on('pw:capture', async (e, c) => {
     if (res.response === 0) pwSave(h, c.user || '', c.pass)
   } catch (_) {}
 })
+ipcMain.on('reader-open', (e, a) => {
+  const t = wcToTab(e.sender)
+  openReader(W_ofTab(t), t, a)
+})
+ipcMain.handle('reader:get', (e, id) => {
+  const a = readerCache.get(Number(id))
+  if (!a) return null
+  return { title: a.title, url: a.url, host: siteHostOf(a.url), html: a.html }
+})
+ipcMain.handle('reader:back', (e) => {
+  const t = wcToTab(e.sender)
+  const w = W_ofTab(t)
+  if (!w || !t) return
+  const i = w.tabs.findIndex(x => x.id === t.id)
+  closeTab(w, t.id)
+  const prev = w.tabs[Math.max(0, i - 1)]
+  if (prev) switchTab(w, prev.id)
+})
+ipcMain.handle('tab:reader', (e) => {
+  const w = wOfEvent(e)
+  if (w) readerOf(w)
+})
 ipcMain.handle('st:get', () => ({
   search: settings.search,
   homepage: settings.homepage,
@@ -1270,6 +1364,7 @@ if (!lock) {
   app.whenReady().then(() => {
     ses = session.fromPartition('persist:liber')
     setupSession(ses)
+    attachLiber(ses)
     liveSessions.add(ses)
     applyProxyTo(ses, false)
     bypass.start(on => applyProxyAll(on))
@@ -1469,6 +1564,25 @@ if (!lock) {
       console.log('ST folder del:', JSON.stringify(data.bmFolders), 'item folder:', String(oneBm.folder))
       toggleBm('https://liber.net/folder-test')
       console.log('ST folder cleanup bm:', data.bookmarks.length)
+      console.log('ST reader mode:')
+      switchTab(w0, w0.tabs[0].id)
+      await wc0.loadURL('https://example.com/')
+      await wait(1500)
+      await wc0.executeJavaScript(`document.body.innerHTML = '<article><h1>Заголовок статьи</h1><p>' + 'Абзац текста для проверки режима чтения, достаточно длинный чтобы алгоритм выбрал именно этот блок страницы. '.repeat(8) + '</p><p>' + 'Второй абзац статьи, тоже длинный, продолжает проверку извлечения текста целиком без мусора. '.repeat(5) + '</p><script>window.__pwn = 1<\/script><img src=x onerror="window.__pwn=2"></article>'`)
+      await wait(600)
+      key('F9')
+      await wait(1200)
+      const rdTab = w0.tabs[w0.tabs.length - 1]
+      console.log('ST reader tab:', w0.tabs.length, rdTab.url)
+      console.log('ST reader state:', JSON.stringify({ now: rdTab.view.webContents.getURL(), loading: rdTab.view.webContents.isLoading() }))
+      const rdUi = await Promise.race([
+        rdTab.view.webContents.executeJavaScript(`JSON.stringify({ title: document.getElementById('title').textContent, host: document.getElementById('host').textContent, bodyScripts: document.querySelectorAll('#body script').length, pwn: typeof window.__pwn, onerror: document.querySelectorAll('[onerror]').length, hasText: document.getElementById('body').innerText.indexOf('Абзац текста') >= 0 })`),
+        wait(5000).then(() => 'TIMEOUT'),
+      ])
+      console.log('ST reader page:', rdUi)
+      closeTab(w0, rdTab.id)
+      await wait(400)
+      console.log('ST reader closed, tabs:', w0.tabs.length)
       console.log('ST import scan:', JSON.stringify(importProfiles().map(p => p.id)))
       const prof = importProfiles().find(p => p.hasBookmarks)
       if (prof) {

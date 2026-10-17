@@ -1,5 +1,38 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+const JUNK = /(^|[\s_-])(ad|ads|advert|banner|comment|sidebar|related|share|social|promo|navi|nav|menu|footer|header|popup|subscribe|newsletter|cookie|breadcrumb|widget|rating)([\s_-]|$)/i
+
+function readerArticle() {
+  const blocks = document.querySelectorAll('article, main, [role=main], [itemprop=articleBody], .post, .article, .entry, #content, .content, section, div')
+  let best = null
+  let bestScore = 0
+  for (const el of blocks) {
+    const txt = el.innerText || ''
+    if (txt.length < 350) continue
+    const mark = el.id + ' ' + (typeof el.className === 'string' ? el.className : '')
+    if (JUNK.test(mark)) continue
+    const links = [...el.querySelectorAll('a')].reduce((n, a) => n + (a.innerText || '').length, 0)
+    const paras = el.querySelectorAll('p').length
+    const score = txt.length * (1 - Math.min(0.85, links / Math.max(1, txt.length))) + paras * 60
+    if (score > bestScore) {
+      bestScore = score
+      best = el
+    }
+  }
+  if (!best) return null
+  const clone = best.cloneNode(true)
+  for (const n of clone.querySelectorAll('script,style,noscript,iframe,svg,video,audio,form,button,input,select,textarea,nav,aside,footer,header,link')) n.remove()
+  for (const n of [...clone.querySelectorAll('*')]) {
+    const mark = n.id + ' ' + (typeof n.className === 'string' ? n.className : '')
+    if (n.tagName !== 'IMG' && JUNK.test(mark)) {
+      n.remove()
+      continue
+    }
+    if (!n.textContent.trim() && !n.querySelector('img') && !['IMG', 'BR', 'HR', 'TD', 'TH'].includes(n.tagName)) n.remove()
+  }
+  return { title: document.title, html: clone.innerHTML }
+}
+
 window.addEventListener('wheel', e => {
   if (!e.ctrlKey) return
   e.preventDefault()
@@ -33,9 +66,13 @@ if (location.protocol === 'https:' || location.protocol === 'http:') {
     const user = [...f.querySelectorAll('input')].find(i => i !== pw && /^(text|email|tel)$/i.test(i.type || ''))
     ipcRenderer.send('pw:capture', { host: location.host, user: user ? user.value : '', pass: pw.value })
   }, true)
+  ipcRenderer.on('reader-mode', () => {
+    const a = readerArticle()
+    if (a) ipcRenderer.send('reader-open', a)
+  })
 }
 
-if (location.protocol === 'file:') {
+if (location.protocol === 'file:' || location.protocol === 'liber:') {
   contextBridge.exposeInMainWorld('liberPage', {
     nav: q => ipcRenderer.invoke('page:nav', q),
     page: name => ipcRenderer.invoke('page', name),
@@ -65,5 +102,7 @@ if (location.protocol === 'file:') {
     impRun: opts => ipcRenderer.invoke('imp:run', opts),
     pwList: () => ipcRenderer.invoke('pw:list'),
     pwDel: (host, user) => ipcRenderer.invoke('pw:del', host, user),
+    readerGet: id => ipcRenderer.invoke('reader:get', id),
+    readerBack: () => ipcRenderer.invoke('reader:back'),
   })
 }
