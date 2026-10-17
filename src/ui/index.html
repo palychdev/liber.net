@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Liber</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="bar">
+    <div class="logo"><span>Liber</span><i>.</i></div>
+    <div class="navc">
+      <button id="back" class="icn" title="Назад">‹</button>
+    </div>
+    <div id="tabs"></div>
+    <button id="add" class="add" title="Новая вкладка">+</button>
+    <div class="grow"></div>
+    <span id="engine" class="dot" title="обход"></span>
+    <div id="winctl">
+      <button data-m="min" class="wb">−</button>
+      <button data-m="max" class="wb">▢</button>
+      <button data-m="close" class="wb close">✕</button>
+    </div>
+  </div>
+  <div id="omnirow">
+    <input id="omni" type="text" spellcheck="false" placeholder="адрес или поиск">
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Новая вкладка — Liber</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      display: grid;
+      place-items: center;
+      background: #0b0c10;
+      color: #e7e7ea;
+      font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+    }
+    .bg {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(700px 380px at 50% 8%, rgba(138, 123, 255, 0.13), transparent 70%),
+        #0b0c10;
+      z-index: -1;
+    }
+    .wrap { text-align: center; padding: 0 24px 60px; }
+    .mark { font-size: 72px; font-weight: 650; letter-spacing: 0.5px; }
+    .mark i { color: #8a7bff; font-style: normal; }
+    .tag { margin-top: 10px; color: #8b8d97; font-size: 14.5px; }
+    form { margin-top: 34px; }
+    input {
+      width: min(560px, 86vw);
+      height: 48px;
+      padding: 0 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(255,255,255,0.05);
+      color: #e7e7ea;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input::placeholder { color: #6d707a; }
+    input:focus {
+      border-color: #8a7bff;
+      box-shadow: 0 0 0 4px rgba(138, 123, 255, 0.14);
+    }
+    .foot { margin-top: 26px; color: #565863; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="wrap">
+    <div class="mark">Liber<i>.</i></div>
+    <div class="tag">интернет без препятствий. уже включено.</div>
+    <form action="https://duckduckgo.com/" method="get">
+      <input name="q" type="text" placeholder="адрес или поиск" autocomplete="off" spellcheck="false">
+    </form>
+    <div class="foot">liber.net</div>
+  </div>
+</body>
+</html>

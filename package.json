@@ -1,0 +1,15 @@
+{
+  "name": "liber",
+  "productName": "Liber",
+  "version": "0.1.0",
+  "description": "Liber browser — chromium with built-in dpi-desync bypass (liber.net)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "latest"
+  },
+  "license": "MIT",
+  "author": "palychdev"
+}
