@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('liber', {
   onOmni: cb => ipcRenderer.on('focus-omni', cb),
   onFind: cb => ipcRenderer.on('find-omni', cb),
   onFindRes: cb => ipcRenderer.on('findres', (e, r) => cb(r)),
+  onHideSug: cb => ipcRenderer.on('hide-sug', cb),
   newTab: url => ipcRenderer.invoke('tab:new', url || null),
   switchTab: id => ipcRenderer.invoke('tab:switch', id),
   closeTab: id => ipcRenderer.invoke('tab:close', id),

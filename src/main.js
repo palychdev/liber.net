@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, WebContentsView, session } = require('electron')
+const { app, BrowserWindow, ipcMain, WebContentsView, session, Menu, clipboard, desktopCapturer } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const bypass = require('./bypass')
@@ -21,6 +21,11 @@ let activeId = null
 let seq = 0
 let expanded = false
 let dlsActive = 0
+let dlsName = ''
+let dlsPct = 0
+let dlsTick = 0
+const closedTabs = []
+let lastFocus = null
 const data = storage.load()
 
 function bmOn() {
@@ -69,6 +74,8 @@ function sendState() {
     })),
     engine: bypass.status(),
     dls: dlsActive,
+    dlsName,
+    dlsPct,
     isBm: !!(a && a.url && /^https?:/i.test(a.url) && bmIndex(a.url) >= 0),
   })
 }
@@ -103,24 +110,40 @@ function recordHistory(url, title) {
 }
 
 function handleKeys(wc, event, input) {
-  if (input.type !== 'keyDown' || !input.control) return false
+  if (input.type !== 'keyDown') return false
+  if (input.alt && !input.control) {
+    if (input.key === 'ArrowLeft' || input.key === 'Left') { if (wc.navigationHistory.canGoBack()) wc.goBack(); event.preventDefault(); return true }
+    if (input.key === 'ArrowRight' || input.key === 'Right') { if (wc.navigationHistory.canGoForward()) wc.goForward(); event.preventDefault(); return true }
+    return false
+  }
+  if (!input.control) {
+    if (input.key === 'F5') { wc.reload(); event.preventDefault(); return true }
+    return false
+  }
   const k = input.key.toLowerCase()
   if (input.shift) {
-    if (k === 'o') { newTab('file://' + path.join(__dirname, 'ui', 'bms.html').replace(/\\/g, '/')); event.preventDefault(); return true }
+    if (k === 'o') { newTab(internalPage('bms')); event.preventDefault(); return true }
     if (k === 'i') { wc.toggleDevTools(); event.preventDefault(); return true }
+    if (k === 't') {
+      const last = closedTabs.pop()
+      if (last) newTab(last.url)
+      event.preventDefault(); return true
+    }
+    if (k === '+' || k === '=') { zoomBy(wc, 1); event.preventDefault(); return true }
+    if (k === '-') { zoomBy(wc, -1); event.preventDefault(); return true }
     return false
   }
   if (k === 't') { newTab(); event.preventDefault(); return true }
   if (k === 'w') { closeTab(activeId); event.preventDefault(); return true }
   if (k === 'l') { win.webContents.send('focus-omni'); win.webContents.focus(); event.preventDefault(); return true }
   if (k === 'f') { win.webContents.send('find-omni'); win.webContents.focus(); event.preventDefault(); return true }
-  if (k === 'h') { newTab('file://' + path.join(__dirname, 'ui', 'hist.html').replace(/\\/g, '/')); event.preventDefault(); return true }
+  if (k === 'h') { newTab(internalPage('hist')); event.preventDefault(); return true }
   if (k === 'd') {
     const a = activeTab()
     if (a && a.url && /^https?:/i.test(a.url)) { toggleBm(a.url, a.title) }
     event.preventDefault(); return true
   }
-  if (k === 'r' || input.key === 'F5') { wc.reload(); event.preventDefault(); return true }
+  if (k === 'r') { wc.reload(); event.preventDefault(); return true }
   if (k === '+' || k === '=') { zoomBy(wc, 1); event.preventDefault(); return true }
   if (k === '-') { zoomBy(wc, -1); event.preventDefault(); return true }
   if (k === '0') { wc.setZoomFactor(1); event.preventDefault(); return true }
@@ -138,6 +161,12 @@ function zoomBy(wc, dir) {
 
 function attachEvents(t) {
   const wc = t.view.webContents
+  wc.on('focus', () => {
+    if (win && !win.isDestroyed()) win.webContents.send('hide-sug')
+  })
+  if (process.env.LIBER_DEBUG) {
+    wc.on('console-message', (e, level, message, line, sourceId) => console.log('[tab]', message, '(' + sourceId + ':' + line + ')'))
+  }
   wc.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) newTab(url)
     return { action: 'deny' }
@@ -159,6 +188,34 @@ function attachEvents(t) {
   })
   wc.on('found-in-page', (e, res) => {
     win.webContents.send('findres', { count: res.matches, active: res.activeMatchOrdinal })
+  })
+  wc.on('context-menu', (e, p) => {
+    const items = []
+    if (p.linkURL) {
+      items.push({ label: 'открыть в новой вкладке', click: () => newTab(p.linkURL) })
+      items.push({ label: 'копировать ссылку', click: () => clipboard.writeText(p.linkURL) })
+      items.push({ type: 'separator' })
+    }
+    if (p.isEditable) {
+      items.push({ label: 'вырезать', role: 'cut', enabled: p.editFlags.canCut })
+      items.push({ label: 'копировать', role: 'copy', enabled: p.editFlags.canCopy })
+      items.push({ label: 'вставить', role: 'paste', enabled: p.editFlags.canPaste })
+      items.push({ label: 'выделить всё', role: 'selectAll' })
+      items.push({ type: 'separator' })
+    } else if (p.selectionText) {
+      items.push({ label: 'копировать', role: 'copy' })
+      items.push({ type: 'separator' })
+    }
+    if (p.mediaType === 'image') {
+      items.push({ label: 'копировать картинку', click: () => wc.copyImageAt(p.x, p.y) })
+      items.push({ type: 'separator' })
+    }
+    items.push({ label: 'назад', enabled: wc.navigationHistory.canGoBack(), click: () => wc.goBack() })
+    items.push({ label: 'вперёд', enabled: wc.navigationHistory.canGoForward(), click: () => wc.goForward() })
+    items.push({ label: 'обновить', click: () => wc.reload() })
+    items.push({ type: 'separator' })
+    items.push({ label: 'копировать адрес страницы', click: () => clipboard.writeText(wc.getURL()) })
+    Menu.buildFromTemplate(items).popup({ window: win })
   })
   wc.on('did-finish-load', () => { if (t.url && /^https?:/i.test(t.url)) recordHistory(t.url, t.title) })
 }
@@ -207,6 +264,10 @@ function switchTab(id) {
 function closeTab(id) {
   const t = tabs.find(x => x.id === id)
   if (!t) return
+  if (/^https?:/i.test(t.url)) {
+    closedTabs.push({ url: t.url })
+    if (closedTabs.length > 25) closedTabs.shift()
+  }
   tabs = tabs.filter(x => x.id !== id)
   win.contentView.removeChildView(t.view)
   t.view.webContents.close()
@@ -296,6 +357,7 @@ ipcMain.handle('h:clear', () => {
 })
 ipcMain.handle('suggest', (e, q) => {
   const s = (q || '').trim().toLowerCase()
+  if (s.length === 0) return data.history.slice(0, 6).map(it => ({ url: it.url, title: it.title }))
   if (s.length < 2) return []
   const seen = new Set()
   const out = []
@@ -319,24 +381,43 @@ const lock = app.requestSingleInstanceLock()
 if (!lock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (e, argv) => {
     if (win && !win.isDestroyed()) {
       if (win.isMinimized()) win.restore()
       win.focus()
     }
+    const u = (argv || []).find(a => /^https?:\/\//i.test(a))
+    if (u) newTab(u)
   })
 
   app.whenReady().then(() => {
     ses = session.fromPartition('persist:liber')
+    const ALLOW = new Set(['media', 'fullscreen', 'pointerLock', 'notifications', 'clipboard-read', 'clipboard-sanitized-write', 'geolocation', 'display-capture'])
+    ses.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOW.has(permission)))
+    ses.setPermissionCheckHandler((wc, permission) => ALLOW.has(permission))
+    ses.setDisplayMediaRequestHandler((req, cb) => {
+      desktopCapturer.getSources({ types: ['screen'] })
+        .then(srcs => cb(srcs.length ? { video: srcs[0], audio: 'loopback' } : {}))
+        .catch(() => cb({}))
+    })
     applyProxy(false)
     bypass.start(on => applyProxy(on))
     ses.on('will-download', (e, item) => {
       const f = uniquePath(app.getPath('downloads'), item.getFilename())
       item.setSavePath(f)
       dlsActive += 1
+      dlsName = path.basename(f)
+      dlsPct = 0
       sendState()
-      item.once('done', (i, state) => {
+      item.on('updated', (e2, st) => {
+        if (Date.now() - dlsTick < 400) return
+        dlsTick = Date.now()
+        dlsPct = st.totalBytes > 0 ? Math.round((st.receivedBytes / st.totalBytes) * 100) : 0
+        sendState()
+      })
+      item.once('done', (i, st) => {
         dlsActive = Math.max(0, dlsActive - 1)
+        if (dlsActive === 0) { dlsName = ''; dlsPct = 0 }
         sendState()
       })
     })
@@ -366,9 +447,121 @@ if (!lock) {
     win.on('unmaximize', sendState)
     win.on('close', persist)
     win.webContents.on('did-finish-load', () => { sendBm(); sendState() })
+    if (process.env.LIBER_DEBUG) {
+      win.webContents.on('console-message', (e, level, message, line, sourceId) => console.log('[ui]', message, '(' + sourceId + ':' + line + ')'))
+    }
     win.loadFile(path.join(__dirname, 'ui', 'index.html'))
-    for (const u of data.tabs.length ? data.tabs : [null]) newTab(u)
+    const argUrl = process.argv.find(a => /^https?:\/\//i.test(a))
+    for (const u of (argUrl ? [argUrl] : (data.tabs.length ? data.tabs : [null]))) newTab(u)
+    if (process.env.LIBER_SELFTEST) setTimeout(selftest, 2500)
   })
+
+  async function selftest() {
+    const wait = ms => new Promise(r => setTimeout(r, ms))
+    const js = code => win.webContents.executeJavaScript(code)
+    const dev = path.join(__dirname, '..', '_dev')
+    try { fs.mkdirSync(dev, { recursive: true }) } catch (_) {}
+    const shot = async name => {
+      try {
+        const img = await win.webContents.capturePage()
+        fs.writeFileSync(path.join(dev, name + '.png'), img.toPNG())
+      } catch (e) { console.log('ST shot fail:', name, e.message) }
+    }
+    try {
+      console.log('ST restored:', JSON.stringify(tabs.map(t => t.url)))
+      const t0 = tabs[0]
+      const wc0 = t0.view.webContents
+      const key = (k, mods) => {
+        wc0.sendInputEvent({ type: 'keyDown', keyCode: k, modifiers: mods || [] })
+        wc0.sendInputEvent({ type: 'keyUp', keyCode: k, modifiers: mods || [] })
+      }
+      console.log('ST ctrl+T from content:')
+      let n = tabs.length
+      key('t', ['control'])
+      await wait(500)
+      console.log('ST tabs:', n, '->', tabs.length)
+      console.log('ST ctrl+W:')
+      n = tabs.length
+      key('w', ['control'])
+      await wait(400)
+      console.log('ST tabs:', n, '->', tabs.length)
+      console.log('ST zoom ctrl+= :')
+      wc0.setZoomFactor(1)
+      key('=', ['control'])
+      await wait(300)
+      console.log('ST zoomFactor:', wc0.getZoomFactor())
+      wc0.setZoomFactor(1)
+      key('+', ['control', 'shift'])
+      await wait(300)
+      console.log('ST zoomFactor shift+:', wc0.getZoomFactor())
+      wc0.setZoomFactor(1)
+      console.log('ST ctrl+D on http tab:')
+      await js(`(function(){ const pills = [...document.querySelectorAll('.tab')]; const i = ${JSON.stringify(0)}; pills[i].click(); return 1 })()`)
+      await wait(300)
+      const bmBefore = data.bookmarks.length
+      key('d', ['control'])
+      await wait(400)
+      console.log('ST bm:', bmBefore, '->', data.bookmarks.length)
+      key('d', ['control'])
+      await wait(400)
+      console.log('ST bm back:', data.bookmarks.length)
+      console.log('ST popup window.open:')
+      n = tabs.length
+      await wc0.executeJavaScript(`window.open('https://example.com/?popup', '_blank'); 1`)
+      await wait(900)
+      console.log('ST tabs:', n, '->', tabs.length, 'last:', tabs[tabs.length - 1].url)
+      console.log('ST close popup + reopen closed:')
+      n = tabs.length
+      key('w', ['control'])
+      await wait(400)
+      const afterClose = tabs.length
+      key('t', ['control', 'shift'])
+      await wait(700)
+      console.log('ST tabs:', n, '->', afterClose, '->', tabs.length, 'last:', tabs[tabs.length - 1].url)
+      console.log('ST alt+left back:')
+      await wc0.loadURL('https://example.com/?y')
+      await wait(1800)
+      console.log('ST canGoBack:', wc0.navigationHistory.canGoBack())
+      key('Left', ['alt'])
+      await wait(900)
+      console.log('ST url after alt+Left:', wc0.getURL())
+      console.log('ST ctrl+F find:')
+      key('f', ['control'])
+      await wait(400)
+      console.log('ST find placeholder:', await js(`document.getElementById('omni').placeholder`))
+      await js(`(function(){ document.getElementById('omni').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 1 })()`)
+      await wait(300)
+      console.log('ST suggest on focus:')
+      await js(`(function(){ document.getElementById('omni').focus(); return 1 })()`)
+      await wait(700)
+      console.log('ST sug state:', await js(`JSON.stringify({ cls: document.getElementById('sug').className, items: document.querySelectorAll('.sugit').length })`))
+      await shot('sug')
+      console.log('ST star via dom:')
+      await js(`(function(){ document.querySelectorAll('.tab')[0].click(); return 1 })()`)
+      await wait(300)
+      await js(`(function(){ document.getElementById('star').click(); return 1 })()`)
+      await wait(500)
+      console.log('ST bm list:', data.bookmarks.map(b => b.url).join(','))
+      console.log('ST bmbar:', await js(`document.getElementById('bmbar').className + ' ' + document.querySelectorAll('.bmi').length`))
+      await shot('bm')
+      await js(`(function(){ document.getElementById('star').click(); return 1 })()`)
+      await wait(300)
+      console.log('ST download test:')
+      const dlDir = app.getPath('downloads')
+      const before2 = new Set(fs.existsSync(dlDir) ? fs.readdirSync(dlDir) : [])
+      wc0.downloadURL('https://example.com/')
+      await wait(4000)
+      const after2 = fs.existsSync(dlDir) ? fs.readdirSync(dlDir).filter(f => !before2.has(f)) : []
+      console.log('ST new files:', JSON.stringify(after2))
+      persist()
+      const saved = storage.load()
+      console.log('ST persisted tabs:', JSON.stringify(saved.tabs))
+      console.log('ST history:', saved.history.length)
+    } catch (e) {
+      console.log('ST FATAL:', e.message)
+    }
+    console.log('ST done')
+  }
 
   app.on('window-all-closed', () => app.quit())
 }

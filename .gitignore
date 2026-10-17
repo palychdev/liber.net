@@ -1,4 +1,7 @@
 node_modules/
 dist/
 out/
+_dev/
+err.log
+out.log
 *.log

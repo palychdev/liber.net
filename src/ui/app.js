@@ -11,6 +11,10 @@ const cntEl = document.getElementById('cnt')
 const engineEl = document.getElementById('engine')
 const dlsEl = document.getElementById('dls')
 
+window.addEventListener('error', e => {
+  window.__liberErr = String(e.message) + ' @' + (e.filename || '') + ':' + (e.lineno || 0)
+})
+
 let state = null
 let bms = []
 let findMode = false
@@ -81,7 +85,6 @@ function querySug() {
   if (findMode) return
   const q = omni.value
   clearTimeout(sugTimer)
-  if (!q.trim()) { hideSug(); return }
   sugTimer = setTimeout(async () => {
     if (findMode || omni.value !== q) return
     const items = await window.liber.suggest(q)
@@ -112,6 +115,7 @@ function enterFind() {
 function renderBm(list) {
   bms = list
   bmbarEl.classList.toggle('show', bms.length > 0)
+  document.body.classList.toggle('hasbm', bms.length > 0)
   bmbarEl.replaceChildren(...bms.map(b => {
     const btn = document.createElement('button')
     btn.className = 'bmi'
@@ -125,7 +129,7 @@ function render(s) {
   state = s
   tabsEl.replaceChildren(...s.tabs.map(tabEl))
   engineEl.classList.toggle('off', !s.engine)
-  dlsEl.textContent = s.dls > 0 ? '↓ ' + s.dls : ''
+  dlsEl.textContent = s.dls > 0 ? '↓ ' + (s.dlsName || s.dls) + (s.dlsPct ? ' ' + s.dlsPct + '%' : '') : ''
   starEl.classList.toggle('on', !!s.isBm)
   starEl.textContent = s.isBm ? '★' : '☆'
   const a = activeTab(s) ? activeTab(s) : null
@@ -138,6 +142,7 @@ window.liber.state(render)
 window.liber.onBm(renderBm)
 window.liber.onOmni(() => { omni.focus(); omni.select(); querySug() })
 window.liber.onFind(() => enterFind())
+window.liber.onHideSug(() => hideSug())
 window.liber.onFindRes(r => { cntEl.textContent = findMode ? `${r.active}/${r.count}` : '' })
 
 addEl.addEventListener('click', () => window.liber.newTab())
@@ -149,9 +154,10 @@ starEl.addEventListener('click', () => {
   if (a && a.url && /^https?:/i.test(a.url)) window.liber.bmToggle(a.url, a.title)
 })
 
-omni.addEventListener('focus', () => omni.select())
+omni.addEventListener('focus', () => { omni.select(); querySug() })
 omni.addEventListener('input', querySug)
 omni.addEventListener('blur', () => setTimeout(() => {
+  if (!document.hasFocus()) return
   if (!sugEl.contains(document.activeElement)) hideSug()
 }, 160))
 omni.addEventListener('keydown', e => {
