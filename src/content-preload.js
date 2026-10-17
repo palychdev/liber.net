@@ -101,6 +101,8 @@ if (location.protocol === 'file:' || location.protocol === 'liber:') {
     bfAdd: name => ipcRenderer.invoke('bf:add', name),
     bfDel: name => ipcRenderer.invoke('bf:del', name),
     bmMove: (url, folder) => ipcRenderer.invoke('b:move', url, folder),
+    bmExport: () => ipcRenderer.invoke('bm:export'),
+    bmImport: () => ipcRenderer.invoke('bm:import'),
     dls: () => ipcRenderer.invoke('d:list'),
     dlCancel: id => ipcRenderer.invoke('d:cancel', id),
     dlPause: id => ipcRenderer.invoke('d:pause', id),

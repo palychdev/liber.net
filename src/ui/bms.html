@@ -12,6 +12,11 @@
     <div class="row">
       <input id="fname" class="searchbox" placeholder="название новой папки и enter" spellcheck="false">
     </div>
+    <div class="row bmact">
+      <button class="mini" id="bmexp">экспорт в html</button>
+      <button class="mini" id="bmimp">импорт из html</button>
+      <span class="hint" id="bmmsg"></span>
+    </div>
     <div class="cols">
       <div class="side" id="side"></div>
       <div class="bmmain" id="list"></div>
@@ -113,6 +118,24 @@
       fnameEl.value = ''
       apply(await P.bfAdd(name))
       sel = name
+      render()
+    })
+
+    const msgEl = document.getElementById('bmmsg')
+
+    document.getElementById('bmexp').addEventListener('click', async () => {
+      const p = await P.bmExport()
+      msgEl.textContent = p ? 'сохранено: ' + p : 'экспорт отменён'
+    })
+
+    document.getElementById('bmimp').addEventListener('click', async () => {
+      const r = await P.bmImport()
+      if (!r) {
+        msgEl.textContent = 'импорт отменён'
+        return
+      }
+      msgEl.textContent = 'найдено ' + r.found + ', добавлено ' + r.added + ', новых папок ' + r.folders
+      apply(await P.bms())
       render()
     })
 

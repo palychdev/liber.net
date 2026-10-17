@@ -308,6 +308,103 @@ function bmMove(url, folder) {
   return bmPayload()
 }
 
+function htmlEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function htmlUnesc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n) || 0))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16) || 0))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
+function stripTags(s) {
+  return String(s == null ? '' : s).replace(/<[^>]*>/g, '')
+}
+
+function bmExportHtml() {
+  const ts = Math.floor(Date.now() / 1000)
+  const a = b => '    <DT><A HREF="' + htmlEsc(b.url) + '" ADD_DATE="' + Math.floor((b.date || Date.now()) / 1000) + '">' + htmlEsc(b.title || b.url) + '</A>'
+  const out = [
+    '<!DOCTYPE NETSCAPE-Bookmark-file-1>',
+    '<!-- This is an automatically generated file.',
+    '     It will be read and overwritten.',
+    '     DO NOT EDIT! -->',
+    '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+    '<TITLE>Bookmarks</TITLE>',
+    '<H1>Bookmarks</H1>',
+    '<DL><p>',
+  ]
+  for (const b of data.bookmarks) {
+    if (!b.folder) out.push(a(b))
+  }
+  for (const f of data.bmFolders) {
+    out.push('    <DT><H3 ADD_DATE="' + ts + '" LAST_MODIFIED="' + ts + '">' + htmlEsc(f) + '</H3>')
+    out.push('    <DL><p>')
+    for (const b of data.bookmarks) {
+      if (b.folder === f) out.push('    ' + a(b))
+    }
+    out.push('    </DL><p>')
+  }
+  out.push('</DL><p>', '')
+  return out.join('\n')
+}
+
+function parseBmHtml(text) {
+  const out = []
+  const stack = []
+  const re = /<\/dl[^>]*>|(?:<dt[^>]*>\s*)?<h3[^>]*>([\s\S]*?)<\/h3>|<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi
+  let m = null
+  while ((m = re.exec(String(text || '')))) {
+    if (/^<\/dl/i.test(m[0])) {
+      if (stack.length) stack.pop()
+      continue
+    }
+    if (m[1] !== undefined) {
+      const name = htmlUnesc(stripTags(m[1])).replace(/\s+/g, ' ').trim()
+      stack.push(name)
+      continue
+    }
+    const url = htmlUnesc(m[2]).trim()
+    if (!/^(https?|ftp|file):/i.test(url)) continue
+    const title = htmlUnesc(stripTags(m[3])).replace(/\s+/g, ' ').trim()
+    out.push({ url, title: title || url, folder: stack.filter(Boolean).join(' / ') })
+  }
+  return out
+}
+
+function bmImportHtml(text) {
+  const list = parseBmHtml(text)
+  const have = new Set(data.bookmarks.map(b => b.url))
+  let added = 0
+  let folders = 0
+  for (const it of list) {
+    if (have.has(it.url)) continue
+    have.add(it.url)
+    if (it.folder && !data.bmFolders.includes(it.folder)) {
+      data.bmFolders.push(it.folder)
+      folders += 1
+    }
+    data.bookmarks.push({ url: it.url, title: it.title, folder: it.folder || '', date: Date.now() })
+    added += 1
+  }
+  storage.save(data)
+  sendBm()
+  bcast()
+  return { found: list.length, added, folders }
+}
+
 function persist() {
   data.windows = windows
     .filter(w => !w.isPrivate && !w.win.isDestroyed())
@@ -1502,6 +1599,35 @@ ipcMain.handle('b:remove', (e, url) => {
 ipcMain.handle('bf:add', (e, name) => bmFolderAdd(name))
 ipcMain.handle('bf:del', (e, name) => bmFolderDel(name))
 ipcMain.handle('b:move', (e, url, folder) => bmMove(url, folder))
+ipcMain.handle('bm:export', async (e) => {
+  const w = wOfEvent(e)
+  try {
+    const res = await dialog.showSaveDialog(w && !w.win.isDestroyed() ? w.win : null, {
+      title: 'экспорт закладок',
+      defaultPath: path.join(app.getPath('downloads'), 'liber-bookmarks-' + new Date().toISOString().slice(0, 10) + '.html'),
+      filters: [{ name: 'HTML', extensions: ['html'] }],
+    })
+    if (res.canceled || !res.filePath) return ''
+    fs.writeFileSync(res.filePath, bmExportHtml(), 'utf8')
+    return res.filePath
+  } catch (_) {
+    return ''
+  }
+})
+ipcMain.handle('bm:import', async (e) => {
+  const w = wOfEvent(e)
+  try {
+    const res = await dialog.showOpenDialog(w && !w.win.isDestroyed() ? w.win : null, {
+      title: 'импорт закладок',
+      filters: [{ name: 'HTML', extensions: ['html', 'htm'] }],
+      properties: ['openFile'],
+    })
+    if (res.canceled || !res.filePaths.length) return null
+    return bmImportHtml(fs.readFileSync(res.filePaths[0], 'utf8'))
+  } catch (_) {
+    return null
+  }
+})
 ipcMain.handle('h:list', (e, n) => data.history.slice(0, n))
 ipcMain.handle('h:remove', (e, url) => {
   data.history = data.history.filter(x => x.url !== url)
@@ -1927,7 +2053,7 @@ if (!lock) {
       await js(`window.liber.page('bms')`)
       await wait(800)
       const bmsTab = w0.tabs[w0.tabs.length - 1]
-      console.log('ST bms ui:', await bmsTab.view.webContents.executeJavaScript(`JSON.stringify({ side: document.querySelectorAll('.fbtn').length, sels: document.querySelectorAll('.mini-sel').length, rows: document.querySelectorAll('.item').length })`))
+      console.log('ST bms ui:', await bmsTab.view.webContents.executeJavaScript(`JSON.stringify({ side: document.querySelectorAll('.fbtn').length, sels: document.querySelectorAll('.mini-sel').length, rows: document.querySelectorAll('.item').length, exp: !!document.getElementById('bmexp'), imp: !!document.getElementById('bmimp') })`))
       closeTab(w0, bmsTab.id)
       await wait(400)
       bmFolderDel('test-folder')
@@ -2062,6 +2188,24 @@ if (!lock) {
       applySettings({ search: cust.id })
       console.log('ST eng default:', engine().label, settings.search === cust.id, toUrl('котики').slice(0, 45))
       console.log('ST eng removed:', JSON.stringify(engDel(cust.id).map(e => e.id)), '| default now:', settings.search, '| stored:', data.engines.length)
+      console.log('ST bm html export:')
+      data.bookmarks = [
+        { url: 'https://a.example.com/1', title: 'тест 1', date: Date.now() },
+        { url: 'https://b.example.com/2?x=1&y=2', title: 'тест & <2>', folder: 'работа', date: Date.now() },
+      ]
+      data.bmFolders = ['работа']
+      const bmHtml = bmExportHtml()
+      console.log('ST bm html:', bmHtml.split('\n').length, 'lines |', bmHtml.includes('HREF="https://b.example.com/2?x=1&amp;y=2"'), bmHtml.includes('>тест &amp; &lt;2&gt;</A>'), bmHtml.includes('<H3 ADD_DATE='))
+      data.bookmarks = []
+      data.bmFolders = []
+      const bmImp = bmImportHtml(bmHtml)
+      console.log('ST bm import:', JSON.stringify(bmImp), JSON.stringify(data.bookmarks.map(b => b.title + '|' + (b.folder || '-') + '|' + !!b.date)))
+      console.log('ST bm import again:', JSON.stringify(bmImportHtml(bmHtml)), 'total:', data.bookmarks.length)
+      const nested = '<DL><p><DT><H3>top</H3><DL><p><DT><H3>inner</H3><DL><p><DT><A HREF="https://n.example.com/">nest</A><DT><A HREF="javascript:void(0)">skip</A></DL><p></DL><p><DT><A HREF="https://r.example.com/">root</A></DL><p>'
+      console.log('ST bm nested:', JSON.stringify(bmImportHtml(nested)), JSON.stringify(data.bookmarks.map(b => b.title + '|' + (b.folder || '-'))))
+      data.bookmarks = []
+      data.bmFolders = []
+      storage.save(data)
       console.log('ST sqlite:', (() => { try { require('node:sqlite'); return 'yes' } catch (_) { return 'no' } })())
       console.log('ST passwords:')
       pwSave('example.com', 'user1', 'secret1')

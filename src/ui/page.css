@@ -194,3 +194,5 @@ h2 {
 }
 .srbody .k { width: 150px; }
 .srbody .mini-sel { flex: 1; }
+.bmact { display: flex; align-items: center; gap: 8px; }
+.bmact .hint { margin-top: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
