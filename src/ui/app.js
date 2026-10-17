@@ -52,7 +52,8 @@ function looksUrl(q) {
 
 function tabEl(t) {
   const d = document.createElement('div')
-  d.className = 'tab' + (t.active ? ' on' : '') + (t.loading ? ' ld' : '') + (t.muted ? ' mut' : '')
+  d.className = 'tab' + (t.active ? ' on' : '') + (t.loading ? ' ld' : '') + (t.muted ? ' mut' : '') + (t.pinned ? ' pinned' : '')
+  d.title = t.title || ''
   if (t.muted) {
     const m = document.createElement('span')
     m.className = 'mt'
@@ -62,15 +63,22 @@ function tabEl(t) {
     const f = document.createElement('img')
     f.src = t.favicon
     d.append(f)
+  } else if (t.pinned) {
+    const p = document.createElement('span')
+    p.className = 'pinm'
+    p.textContent = '📌'
+    d.append(p)
   }
-  const title = document.createElement('span')
-  title.className = 'title'
-  title.textContent = t.loading ? '…' : (t.title || 'Новая вкладка')
-  const x = document.createElement('span')
-  x.className = 'x'
-  x.textContent = '✕'
-  x.addEventListener('click', e => { e.stopPropagation(); window.liber.closeTab(t.id) })
-  d.append(title, x)
+  if (!t.pinned) {
+    const title = document.createElement('span')
+    title.className = 'title'
+    title.textContent = t.loading ? '…' : (t.title || 'Новая вкладка')
+    const x = document.createElement('span')
+    x.className = 'x'
+    x.textContent = '✕'
+    x.addEventListener('click', e => { e.stopPropagation(); window.liber.closeTab(t.id) })
+    d.append(title, x)
+  }
   if (t.audible) {
     const a = document.createElement('span')
     a.className = 'aud'
@@ -151,6 +159,7 @@ function showTabMenu(t, x, y) {
   popMenu(tmenuEl, x, y, [
     { label: 'обновить', action: () => window.liber.reload(t.id) },
     { label: 'дублировать', action: () => window.liber.dupTab(t.id) },
+    { label: t.pinned ? 'открепить вкладку' : 'закрепить вкладку', action: () => window.liber.pinTab(t.id, !t.pinned) },
     { label: t.muted ? 'включить звук' : 'выключить звук', action: () => window.liber.muteTab(t.id) },
     null,
     { label: 'закрыть', hint: 'Ctrl+W', action: () => window.liber.closeTab(t.id) },

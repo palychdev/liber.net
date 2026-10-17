@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('liber', {
   newWindow: priv => ipcRenderer.invoke('win:new', !!priv),
   switchTab: id => ipcRenderer.invoke('tab:switch', id),
   closeTab: id => ipcRenderer.invoke('tab:close', id),
+  pinTab: (id, on) => ipcRenderer.invoke('tab:pin', id, on),
   dupTab: id => ipcRenderer.invoke('tab:dup', id),
   closeOthers: id => ipcRenderer.invoke('tab:closeothers', id),
   closeRight: id => ipcRenderer.invoke('tab:closeright', id),

@@ -250,6 +250,7 @@ function sendState(w) {
         active: t.id === w.activeId,
         muted: tm,
         audible: ta && !tm,
+        pinned: !!t.pinned,
       }
     }),
     engine: bypass.status(),
@@ -405,6 +406,18 @@ function bmImportHtml(text) {
   return { found: list.length, added, folders }
 }
 
+function setPinned(w, id, on) {
+  const t = w.tabs.find(x => x.id === id)
+  if (!t || !!t.pinned === !!on) return
+  t.pinned = !!on
+  const rest = w.tabs.filter(x => x.id !== id)
+  let idx = 0
+  while (idx < rest.length && rest[idx].pinned) idx += 1
+  rest.splice(idx, 0, t)
+  w.tabs = rest
+  sendState(w)
+}
+
 function persist() {
   data.windows = windows
     .filter(w => !w.isPrivate && !w.win.isDestroyed())
@@ -413,7 +426,7 @@ function persist() {
       const b = maxed ? null : w.win.getBounds()
       return {
         bounds: b,
-        tabs: w.tabs.map(t => (/^https?:/i.test(t.url) ? t.url : null)).filter(Boolean),
+        tabs: w.tabs.map(t => (/^https?:/i.test(t.url) || t.pinned ? { url: t.url, pinned: t.pinned ? 1 : 0 } : null)).filter(Boolean),
       }
     })
   delete data.window
@@ -743,7 +756,7 @@ function newTab(url, w) {
       preload: path.join(__dirname, 'content-preload.js'),
     },
   })
-  const t = { id, view, url: url || START_URL, title: '', loading: false, favicon: '' }
+  const t = { id, view, url: url || START_URL, title: '', loading: false, favicon: '', pinned: false }
   w.tabs.push(t)
   attachEvents(t, w)
   w.win.contentView.addChildView(view)
@@ -1453,7 +1466,15 @@ function createWindow(opts) {
   }
   if (o.private) bw.loadFile(INDEX, { query: { priv: '1' } })
   else bw.loadFile(INDEX)
-  for (const u of (o.tabs && o.tabs.length ? o.tabs : [null])) newTab(u, w)
+  for (const it of (o.tabs && o.tabs.length ? o.tabs : [null])) {
+    const raw = typeof it === 'string' ? it : (it && (it.url || it.u)) || START_URL
+    const id = newTab(raw, w)
+    if (it && typeof it === 'object' && (it.pinned || it.p)) {
+      const t = w.tabs.find(x => x.id === id)
+      if (t) t.pinned = true
+    }
+  }
+  if (w.tabs.some(t => t.pinned)) w.tabs = w.tabs.filter(t => t.pinned).concat(w.tabs.filter(t => !t.pinned))
   focusedW = w
   return w
 }
@@ -1471,6 +1492,11 @@ ipcMain.handle('tab:close', (e, id) => {
   const t = tabById(id)
   const w = W_ofTab(t)
   if (w) closeTab(w, id)
+})
+ipcMain.handle('tab:pin', (e, id, on) => {
+  const t = tabById(id)
+  const w = W_ofTab(t)
+  if (w) setPinned(w, id, on)
 })
 ipcMain.handle('tab:dup', (e, id) => {
   const t = tabById(id)
@@ -2206,6 +2232,29 @@ if (!lock) {
       data.bookmarks = []
       data.bmFolders = []
       storage.save(data)
+      console.log('ST pinned tabs:')
+      const pinA = w0.tabs[0].id
+      const pinB = newTab('https://example.com/?pin', w0)
+      const pinC = newTab('https://example.com/?normal', w0)
+      setPinned(w0, pinB, true)
+      setPinned(w0, pinC, true)
+      setPinned(w0, pinB, false)
+      console.log('ST pin order:', JSON.stringify(w0.tabs.map(t => (t.pinned ? 'P' : '-') + (t.url.includes('pin') ? 'b' : t.url.includes('normal') ? 'c' : 'a'))))
+      await wait(400)
+      const pinState = await js(`JSON.stringify([...document.querySelectorAll('.tab')].map(e => e.className.includes('pinned') ? 'P' : '-'))`)
+      console.log('ST pin ui:', pinState, await js(`document.querySelectorAll('.tab.pinned .title').length`), await js(`document.querySelectorAll('.tab.pinned').length`))
+      persist()
+      const savedTabs = storage.load().windows[0].tabs
+      console.log('ST pin persisted:', JSON.stringify(savedTabs))
+      closeTab(w0, pinB)
+      closeTab(w0, pinC)
+      await wait(400)
+      const rw = createWindow({ tabs: savedTabs, bounds: { width: 1000, height: 700 } })
+      await wait(1500)
+      console.log('ST pin restored:', JSON.stringify(rw.tabs.map(t => (t.pinned ? 'P' : '-') + (t.url.includes('pin') ? 'b' : t.url.includes('normal') ? 'c' : 'a'))), windows.length)
+      rw.win.close()
+      await wait(500)
+      console.log('ST windows after pin test:', windows.length)
       console.log('ST sqlite:', (() => { try { require('node:sqlite'); return 'yes' } catch (_) { return 'no' } })())
       console.log('ST passwords:')
       pwSave('example.com', 'user1', 'secret1')

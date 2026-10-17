@@ -127,6 +127,12 @@ html, body {
 .tab.ld .title { opacity: 0.55; }
 .tab .mt { font-size: 10px; flex: 0 0 auto; }
 .tab .aud { font-size: 9px; opacity: 0.65; flex: 0 0 auto; }
+.tab .pinm { font-size: 10px; flex: 0 0 auto; }
+.tab.pinned {
+  min-width: 34px;
+  max-width: 46px;
+  padding: 0 9px;
+}
 
 .add {
   width: 26px; height: 26px;
