@@ -39,5 +39,6 @@ contextBridge.exposeInMainWorld('liber', {
   chrome: on => ipcRenderer.invoke('chrome', on),
   full: () => ipcRenderer.invoke('win:full'),
   reader: () => ipcRenderer.invoke('tab:reader'),
+  translate: () => ipcRenderer.invoke('tab:translate'),
   call: m => ipcRenderer.invoke('win:' + m),
 })

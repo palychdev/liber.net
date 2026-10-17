@@ -490,6 +490,7 @@ function contextMenu(wc, p, w) {
   if (/^https?:/i.test(u)) {
     items.push({ label: 'просмотр кода страницы', click: () => newTab('view-source:' + u, w) })
     items.push({ label: 'режим чтения', click: () => wc.send('reader-mode') })
+    items.push({ label: 'перевести страницу', click: () => newTab(translateUrl(u), w) })
   }
   items.push({ label: 'сохранить страницу как…', click: () => savePageOf(wc, wcToTab(wc)) })
   items.push({ label: 'печать…', click: () => printOf(wc) })
@@ -898,6 +899,10 @@ function attachLiber(s) {
   return s
 }
 
+function translateUrl(url) {
+  return 'https://www.translatetheweb.com/?from=auto&to=ru&a=' + encodeURIComponent(url)
+}
+
 function readerOf(w) {
   const t = activeTab(w)
   if (t && /^https?:/i.test(t.url)) t.view.webContents.send('reader-mode')
@@ -1281,6 +1286,11 @@ ipcMain.handle('tab:reader', (e) => {
   const w = wOfEvent(e)
   if (w) readerOf(w)
 })
+ipcMain.handle('tab:translate', (e) => {
+  const w = wOfEvent(e)
+  const t = w && activeTab(w)
+  if (t && /^https?:/i.test(t.url)) newTab(translateUrl(t.url), w)
+})
 ipcMain.handle('st:get', () => ({
   search: settings.search,
   homepage: settings.homepage,
@@ -1580,6 +1590,7 @@ if (!lock) {
         wait(5000).then(() => 'TIMEOUT'),
       ])
       console.log('ST reader page:', rdUi)
+      console.log('ST translate url:', translateUrl('https://example.com/страница'))
       closeTab(w0, rdTab.id)
       await wait(400)
       console.log('ST reader closed, tabs:', w0.tabs.length)
