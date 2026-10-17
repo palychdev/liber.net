@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, WebContentsView, session, Menu, clipboard, desktopCapturer, shell, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, WebContentsView, session, Menu, clipboard, desktopCapturer, shell, dialog, safeStorage } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const bypass = require('./bypass')
@@ -32,6 +32,15 @@ const data = storage.load()
 const settings = Object.assign({ search: 'ddg', homepage: '', downloadDir: '', bmBar: true, restore: true, zoom: {} }, data.settings || {})
 data.settings = settings
 data.bmFolders = Array.isArray(data.bmFolders) ? data.bmFolders : []
+let vault = []
+try {
+  if (data.vault) {
+    let txt = ''
+    try { txt = safeStorage.decryptString(Buffer.from(data.vault, 'base64')) } catch (_) { txt = data.vault }
+    const arr = JSON.parse(txt)
+    if (Array.isArray(arr)) vault = arr
+  }
+} catch (_) { vault = [] }
 const dls = []
 const dlItems = new Map()
 let dlSeq = 0
@@ -792,6 +801,37 @@ function importRun(opts) {
   return { bookmarks: added, history: hAdded, historyOk }
 }
 
+function hostKey(h) {
+  return String(h || '').replace(/^www\./i, '').toLowerCase()
+}
+
+function pwFind(host) {
+  const h = hostKey(host)
+  return vault.find(c => hostKey(c.host) === h) || null
+}
+
+function pwList() {
+  return vault.map(({ host, user, date }) => ({ host, user, date }))
+}
+
+function saveVault() {
+  try {
+    if (safeStorage.isEncryptionAvailable()) data.vault = safeStorage.encryptString(JSON.stringify(vault)).toString('base64')
+    else data.vault = JSON.stringify(vault)
+    storage.save(data)
+  } catch (_) {}
+}
+
+function pwSave(host, user, pass) {
+  const h = hostKey(host)
+  if (!h || !pass) return
+  const i = vault.findIndex(c => hostKey(c.host) === h && c.user === user)
+  const rec = { host: h, user: user || '', pass, date: Date.now() }
+  if (i >= 0) vault[i] = rec
+  else vault.push(rec)
+  saveVault()
+}
+
 function onWillDownload(e, item) {
   const f = uniquePath(dlDirOf(), item.getFilename())
   item.setSavePath(f)
@@ -1114,6 +1154,39 @@ ipcMain.handle('d:clear', () => {
 })
 ipcMain.handle('imp:scan', () => importProfiles().map(p => ({ id: p.id, name: p.name, label: p.label, hasBookmarks: p.hasBookmarks, hasHistory: p.hasHistory })))
 ipcMain.handle('imp:run', (e, opts) => importRun(opts))
+ipcMain.handle('pw:get', (e, host) => {
+  const w = W_ofTab(wcToTab(e.sender))
+  if (w && w.isPrivate) return null
+  const c = pwFind(host)
+  return c ? { user: c.user, pass: c.pass } : null
+})
+ipcMain.handle('pw:list', () => pwList())
+ipcMain.handle('pw:del', (e, host, user) => {
+  vault = vault.filter(c => !(hostKey(c.host) === hostKey(host) && c.user === (user || '')))
+  saveVault()
+  return pwList()
+})
+ipcMain.on('pw:capture', async (e, c) => {
+  if (!c || !c.pass || !c.host) return
+  const t = wcToTab(e.sender)
+  const w = W_ofTab(t)
+  if (!w || w.isPrivate || w.win.isDestroyed()) return
+  const h = hostKey(c.host)
+  const ex = vault.find(x => hostKey(x.host) === h && x.user === (c.user || ''))
+  if (ex && ex.pass === c.pass) return
+  try {
+    const res = await dialog.showMessageBox(w.win, {
+      type: 'question',
+      buttons: ['сохранить', 'не сейчас'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+      message: 'сохранить пароль для ' + h + '?',
+      detail: c.user ? 'логин: ' + c.user : 'пароль будет подставляться на этой странице',
+    })
+    if (res.response === 0) pwSave(h, c.user || '', c.pass)
+  } catch (_) {}
+})
 ipcMain.handle('st:get', () => ({
   search: settings.search,
   homepage: settings.homepage,
@@ -1412,6 +1485,15 @@ if (!lock) {
       } else {
         console.log('ST import: no profile found')
       }
+      console.log('ST sqlite:', (() => { try { require('node:sqlite'); return 'yes' } catch (_) { return 'no' } })())
+      console.log('ST passwords:')
+      pwSave('example.com', 'user1', 'secret1')
+      const got = pwFind('www.example.com')
+      console.log('ST pw match www:', got ? got.user + '/' + got.pass : 'none')
+      console.log('ST pw list:', pwList().length, 'vault encrypted:', !!data.vault)
+      vault = []
+      saveVault()
+      console.log('ST pw cleared:', pwList().length)
       persist()
       const saved = storage.load()
       console.log('ST persisted windows:', JSON.stringify((saved.windows || []).map(w => w.tabs.length)))

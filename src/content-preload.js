@@ -6,6 +6,35 @@ window.addEventListener('wheel', e => {
   ipcRenderer.send('zoom-wheel', e.deltaY)
 }, { passive: false })
 
+if (location.protocol === 'https:' || location.protocol === 'http:') {
+  const filled = new WeakSet()
+  const fire = el => el.dispatchEvent(new Event('input', { bubbles: true }))
+  const fill = async () => {
+    const pw = document.querySelector('input[type=password]')
+    if (!pw || filled.has(pw)) return
+    let cred = null
+    try { cred = await ipcRenderer.invoke('pw:get', location.host) } catch (_) {}
+    if (!cred) return
+    filled.add(pw)
+    const scope = pw.form || document
+    const user = [...scope.querySelectorAll('input')].find(i => i !== pw && /^(text|email|tel)$/i.test(i.type || ''))
+    if (user && !user.value) { user.value = cred.user || ''; fire(user) }
+    if (!pw.value) { pw.value = cred.pass || ''; fire(pw) }
+  }
+  document.addEventListener('focusin', e => {
+    const t = e.target
+    if (t && t.type === 'password') fill()
+  }, true)
+  document.addEventListener('submit', e => {
+    const f = e.target
+    if (!f || !f.querySelector) return
+    const pw = f.querySelector('input[type=password]')
+    if (!pw || !pw.value) return
+    const user = [...f.querySelectorAll('input')].find(i => i !== pw && /^(text|email|tel)$/i.test(i.type || ''))
+    ipcRenderer.send('pw:capture', { host: location.host, user: user ? user.value : '', pass: pw.value })
+  }, true)
+}
+
 if (location.protocol === 'file:') {
   contextBridge.exposeInMainWorld('liberPage', {
     nav: q => ipcRenderer.invoke('page:nav', q),
@@ -34,5 +63,7 @@ if (location.protocol === 'file:') {
     openExt: url => ipcRenderer.invoke('open-ext', url),
     impScan: () => ipcRenderer.invoke('imp:scan'),
     impRun: opts => ipcRenderer.invoke('imp:run', opts),
+    pwList: () => ipcRenderer.invoke('pw:list'),
+    pwDel: (host, user) => ipcRenderer.invoke('pw:del', host, user),
   })
 }

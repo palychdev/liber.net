@@ -69,6 +69,16 @@
     </div>
 
     <div class="card">
+      <h3>Пароли</h3>
+      <div class="kv">
+        <span class="k">сохранено</span>
+        <span class="v" id="pwcount">…</span>
+      </div>
+      <div id="pwlist"></div>
+      <div class="hint">шифруются средствами windows и подставляются только на том сайте, где сохранялись. предложение сохранить всплывает после входа.</div>
+    </div>
+
+    <div class="card">
       <h3>Обход блокировок</h3>
       <div class="kv">
         <span class="k">движок</span>
@@ -140,6 +150,30 @@
       }))
     }
 
+    async function loadPw() {
+      const list = await P.pwList()
+      $('pwcount').textContent = list.length ? list.length + ' шт.' : 'пока пусто'
+      $('pwlist').replaceChildren(...list.map(c => {
+        const d = document.createElement('div')
+        d.className = 'item'
+        const tx = document.createElement('div')
+        tx.className = 'tx'
+        const h = document.createElement('div')
+        h.className = 'pt'
+        h.textContent = c.host
+        const u = document.createElement('div')
+        u.className = 'u'
+        u.textContent = c.user || 'без логина'
+        tx.append(h, u)
+        const del = document.createElement('button')
+        del.className = 'del'
+        del.textContent = '✕'
+        del.addEventListener('click', async () => { await P.pwDel(c.host, c.user); loadPw() })
+        d.append(tx, del)
+        return d
+      }))
+    }
+
     $('search').addEventListener('change', async () => { await P.stSet({ search: $('search').value }); flash('сохранено') })
     $('home').addEventListener('change', async () => { await P.stSet({ homepage: $('home').value }); flash('сохранено') })
     $('bmbar').addEventListener('change', async () => { await P.stSet({ bmBar: $('bmbar').checked }); flash('сохранено') })
@@ -164,6 +198,7 @@
 
     load()
     loadImp()
+    loadPw()
   </script>
 </body>
 </html>
