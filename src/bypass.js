@@ -6,8 +6,8 @@ const path = require('path')
 const EXE = path.join(__dirname, '..', 'engine', 'ciadpi.exe')
 const PORT = 1079
 const MAX_FAILS = 30
-const PROBE_TIMEOUT = 6000
-const PROBE_HOSTS = ['youtube.com', 'instagram.com', 'discord.com']
+const PROBE_TIMEOUT = 12000
+const PROBE_HOSTS = ['discord.com', 'youtube.com', 'instagram.com']
 
 const STRATEGIES = [
   {
@@ -21,6 +21,30 @@ const STRATEGIES = [
   {
     name: 'жёсткий',
     args: ['-i', '127.0.0.1', '-p', String(PORT), '--split', '1+s', '--disorder', '3+s', '--timeout', '3'],
+  },
+  {
+    name: 'фейк TLS',
+    args: ['-i', '127.0.0.1', '-p', String(PORT), '--split', '1+s', '--fake', '1+s', '--fake-tls-mod', 'rand', '--auto=torst', '--timeout', '3'],
+  },
+  {
+    name: 'TLS запись',
+    args: ['-i', '127.0.0.1', '-p', String(PORT), '--split', '1+s', '--tlsrec', '1+s', '--auto=torst', '--timeout', '3'],
+  },
+  {
+    name: 'фейк + запись',
+    args: ['-i', '127.0.0.1', '-p', String(PORT), '--split', '1+s', '--disorder', '3+s', '--fake', '1+s', '--fake-tls-mod', 'rand', '--tlsrec', '1+s', '--auto=torst', '--timeout', '3'],
+  },
+  {
+    name: 'ssl_err авто',
+    args: ['-i', '127.0.0.1', '-p', String(PORT), '--split', '1+s', '--disorder', '3+s', '--auto=ssl_err', '--timeout', '3'],
+  },
+  {
+    name: 'без авто',
+    args: ['-i', '127.0.0.1', '-p', String(PORT), '--split', '1+s', '--disorder', '3+s', '--auto=none', '--timeout', '5'],
+  },
+  {
+    name: 'агрессивный',
+    args: ['-i', '127.0.0.1', '-p', String(PORT), '--split', '1+s', '--disorder', '1+s', '--fake', '1+s', '--fake-tls-mod', 'rand', '--tlsrec', '1+s', '--auto=ssl_err', '--timeout', '5'],
   },
 ]
 
@@ -55,12 +79,51 @@ function waitPort(timeout) {
   })
 }
 
-function socksConnect(host, port, timeout) {
+function tlsClientHello(host) {
+  const sni = Buffer.from(host, 'utf8')
+  const body = Buffer.alloc(42 + sni.length)
+  body[0] = 0x03 // client_version major
+  body[1] = 0x03 // client_version minor
+  // random (32 bytes) - fill with fixed pattern
+  for (let i = 2; i < 34; i++) body[i] = 0x41
+  body[34] = 0x00 // session id length
+  body[35] = 0x00
+  body[36] = 0x00 // cipher suites length (high)
+  body[37] = 0x2a // cipher suites length (low) = 42
+  // cipher suites (42 bytes) - TLS_AES_128_GCM_SHA256 etc.
+  const suites = [0x13, 0x01, 0x13, 0x02, 0x13, 0x03, 0xc0, 0x2b, 0xc0, 0x2f, 0xc0, 0x2c, 0xc0, 0x30, 0xcc, 0xa9, 0xcc, 0xa8, 0xc0, 0x13, 0xc0, 0x14, 0x00, 0x9c, 0x00, 0x9d, 0x00, 0x2f, 0x00, 0x35, 0x00, 0x0a, 0xff, 0xff]
+  suites.copy(body, 38)
+  body[80] = 0x01 // compression methods length
+  body[81] = 0x00 // null compression
+  // extensions length
+  const extLen = 5 + 2 + 2 + sni.length // server_name extension
+  body[82] = (extLen >> 8) & 0xff
+  body[83] = extLen & 0xff
+  body[84] = 0x00 // extension type server_name (0x0000)
+  body[85] = 0x00
+  body[86] = (3 + sni.length) >> 8 // extension data length
+  body[87] = (3 + sni.length) & 0xff
+  body[88] = 0x00 // sni list length (high)
+  body[89] = sni.length // sni list length (low)
+  sni.copy(body, 90)
+  // TLS record header
+  const record = Buffer.alloc(5 + body.length)
+  record[0] = 0x16 // handshake
+  record[1] = 0x03
+  record[2] = 0x03
+  record[3] = (body.length >> 8) & 0xff
+  record[4] = body.length & 0xff
+  body.copy(record, 5)
+  return record
+}
+
+function socksConnectWithTLS(host, port, timeout) {
   return new Promise((resolve, reject) => {
     const sock = new net.Socket()
     let done = false
     let step = 0
     let buf = Buffer.alloc(0)
+    let gotServerHello = false
     const timer = setTimeout(() => { if (!done) { done = true; sock.destroy(); reject(new Error('timeout')) } }, timeout)
     const finish = ok => { if (!done) { done = true; clearTimeout(timer); try { sock.destroy() } catch (_) {}; resolve(ok) } }
     sock.on('connect', () => {
@@ -85,20 +148,17 @@ function socksConnect(host, port, timeout) {
         if (buf[1] !== 0x00) return finish(false)
         step = 2
         buf = buf.slice(4)
-        const hello = [
-          0x16, 0x03, 0x01, 0x00, 0x00, 0x03, 0x03, 0x00,
-          0x00, 0x00, 0x20, 0x00, 0x00, 0x13, 0x01, 0x00,
-          0x00, 0x00, 0x0a, 0x13, 0x01, 0x13, 0x02, 0x13,
-          0x03, 0xff, 0x01, 0x00,
-        ]
-        hello[4] = hello.length - 4
-        sock.write(Buffer.from(hello))
+        sock.write(tlsClientHello(host))
       } else {
-        finish(true)
+        // step 2: waiting for ServerHello (0x16 0x03 0x03 ... 0x02)
+        if (buf.length >= 5 && buf[0] === 0x16 && buf[1] === 0x03 && buf[3] > 0 && buf[4] === 0x02) {
+          gotServerHello = true
+          finish(true)
+        }
       }
     })
     sock.on('error', err => { if (!done) { done = true; clearTimeout(timer); reject(err) } })
-    sock.on('close', () => { if (!done) { done = true; clearTimeout(timer); reject(new Error('closed')) } })
+    sock.on('close', () => { if (!done && !gotServerHello) { done = true; clearTimeout(timer); reject(new Error('closed')) } })
     sock.connect(PORT, '127.0.0.1')
   })
 }
@@ -111,10 +171,10 @@ function probeStrategy(strategy) {
     const timer = setTimeout(() => finish(false), PROBE_TIMEOUT)
     p.on('spawn', async () => {
       try {
-        if (!(await waitPort(2500))) return finish(false)
+        if (!(await waitPort(3000))) return finish(false)
         for (const host of PROBE_HOSTS) {
           try {
-            if (await socksConnect(host, 443, 3000)) return finish(true)
+            if (await socksConnectWithTLS(host, 443, 4000)) return finish(true)
           } catch (_) {}
         }
         finish(false)
