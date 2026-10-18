@@ -178,6 +178,17 @@
     </div>
 
     <div class="card">
+      <h3>Резервная копия</h3>
+      <div class="kv" style="gap: 8px">
+        <span class="k"></span>
+        <button class="mini" id="bkexport">экспорт настроек</button>
+        <button class="mini" id="bkimport">импорт настроек</button>
+      </div>
+      <div class="hint" id="bkres"></div>
+      <div class="hint">сохраняет настройки, правила сайтов, поисковики и приватность в один JSON-файл. закладки и историю экспортируйте отдельно — в карточках выше.</div>
+    </div>
+
+    <div class="card">
       <h3>О браузере</h3>
       <div class="about" id="about"></div>
     </div>
@@ -281,6 +292,15 @@
         } catch (_) { es.textContent = 'ошибка проверки' }
         er.disabled = false
         er.textContent = 'проверить стратегии снова'
+      })
+      document.getElementById('bkexport').addEventListener('click', async () => {
+        const p = await P.settingsExport()
+        document.getElementById('bkres').textContent = p ? 'экспортировано: ' + p : 'отменено'
+      })
+      document.getElementById('bkimport').addEventListener('click', async () => {
+        const ok = await P.settingsImport()
+        document.getElementById('bkres').textContent = ok ? 'импортировано и применено' : 'отменено'
+        await load()
       })
       $('about').innerHTML =
         'liber <b>' + s.version + '</b> — браузер с встроенным обходом блокировок.<br>' +

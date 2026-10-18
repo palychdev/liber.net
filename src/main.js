@@ -1854,6 +1854,52 @@ ipcMain.handle('bm:import', async (e) => {
     return null
   }
 })
+ipcMain.handle('settings:export', async (e) => {
+  const w = wOfEvent(e)
+  try {
+    const res = await dialog.showSaveDialog(w && !w.win.isDestroyed() ? w.win : null, {
+      title: 'экспорт настроек Liber',
+      defaultPath: path.join(app.getPath('downloads'), 'liber-settings-' + new Date().toISOString().slice(0, 10) + '.json'),
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    if (res.canceled || !res.filePath) return ''
+    const out = {
+      settings: data.settings,
+      siteRules: data.siteRules,
+      engines: data.engines,
+      privacy: data.settings && data.settings.privacy,
+      version: app.getVersion(),
+      exported: new Date().toISOString()
+    }
+    fs.writeFileSync(res.filePath, JSON.stringify(out, null, 2), 'utf8')
+    return res.filePath
+  } catch (_) {
+    return ''
+  }
+})
+ipcMain.handle('settings:import', async (e) => {
+  const w = wOfEvent(e)
+  try {
+    const res = await dialog.showOpenDialog(w && !w.win.isDestroyed() ? w.win : null, {
+      title: 'импорт настроек Liber',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      properties: ['openFile'],
+    })
+    if (res.canceled || !res.filePaths.length) return null
+    const raw = JSON.parse(fs.readFileSync(res.filePaths[0], 'utf8'))
+    const merged = Object.assign({}, data.settings, raw.settings || {})
+    if (raw.siteRules) data.siteRules = raw.siteRules
+    if (raw.engines) data.engines = raw.engines
+    data.settings = merged
+    applySettings(merged)
+    storage.save(data)
+    sendSettings()
+    eachW(applyLayout)
+    return true
+  } catch (_) {
+    return null
+  }
+})
 ipcMain.handle('h:list', (e, n) => data.history.slice(0, n))
 ipcMain.handle('h:remove', (e, url) => {
   data.history = data.history.filter(x => x.url !== url)
