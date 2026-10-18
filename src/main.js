@@ -1,7 +1,9 @@
 const { app, BrowserWindow, ipcMain, WebContentsView, session, Menu, clipboard, desktopCapturer, shell, dialog, safeStorage, protocol } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const tls = require('tls')
 const bypass = require('./bypass')
+const routing = require('./routing')
 const storage = require('./storage')
 const { Adblock, regDomain } = require('./adblock')
 
@@ -203,15 +205,33 @@ function toUrl(q) {
   return engine().url.replace('%s', encodeURIComponent(s))
 }
 
-function applyProxyTo(s, on) {
+let netDirect = false
+
+function probeDirect() {
+  return new Promise(resolve => {
+    const s = tls.connect({ host: 'www.youtube.com', port: 443, servername: 'www.youtube.com', timeout: 6000 })
+    const done = ok => {
+      try { s.destroy() } catch (_) {}
+      resolve(ok)
+    }
+    s.once('secureConnect', () => done(true))
+    s.once('timeout', () => done(false))
+    s.once('error', () => done(false))
+  })
+}
+
+function applyProxyTo(s) {
   try {
-    if (on) s.setProxy({ proxyRules: `socks5://127.0.0.1:${ENGINE_PORT}`, proxyBypassRules: '<local>' })
-    else s.setProxy({})
+    if (netDirect) {
+      s.setProxy({ mode: 'direct' })
+      return
+    }
+    s.setProxy({ proxyRules: `socks5://127.0.0.1:${routing.port()}`, proxyBypassRules: '<local>' })
   } catch (_) {}
 }
 
-function applyProxyAll(on) {
-  for (const s of liveSessions) applyProxyTo(s, on)
+function applyProxyAll() {
+  for (const s of liveSessions) applyProxyTo(s)
 }
 
 function dlDirOf() {
@@ -271,7 +291,8 @@ function sendState(w) {
       }
     }),
     groups: w.groups.map(g => ({ id: g.id, name: g.name, color: g.color, collapsed: !!g.collapsed, count: w.tabs.filter(t => t.group === g.id).length })),
-    engine: bypass.status(),
+    engine: netDirect || bypass.status(),
+    engineMode: netDirect ? 'direct' : 'bypass',
     dls: act.length,
     dlsName: act.length ? act[0].name : '',
     dlsPct: act.length && act[0].total > 0 ? Math.round((act[0].received / act[0].total) * 100) : 0,
@@ -1567,7 +1588,7 @@ function createWindow(opts) {
     setupSession(s)
     attachLiber(s)
     liveSessions.add(s)
-    applyProxyTo(s, bypass.status())
+    applyProxyTo(s)
   }
   const b = o.bounds && Number.isInteger(o.bounds.width) ? o.bounds : {}
   const bw = new BrowserWindow({
@@ -2113,7 +2134,10 @@ ipcMain.handle('site:clear-data', async (e) => {
 })
 ipcMain.handle('bypass:info', () => bypass.info())
 ipcMain.handle('bypass:reprobe', async () => {
-  await bypass.reprobe()
+  netDirect = await probeDirect()
+  applyProxyAll()
+  if (!netDirect) await bypass.reprobe()
+  bcast()
   return bypass.info()
 })
 ipcMain.handle('bypass:strategies', () => bypass.getStrategies())
@@ -2173,7 +2197,8 @@ ipcMain.handle('st:get', () => ({
   filterState,
   rules: adblock.rules,
   downloadsDir: dlDirOf(),
-  engine: bypass.status(),
+  engine: netDirect || bypass.status(),
+  engineMode: netDirect ? 'direct' : 'bypass',
   engineInfo: bypass.info(),
   version: app.getVersion(),
   electron: process.versions.electron,
@@ -2253,8 +2278,14 @@ if (!lock) {
     setupSession(ses)
     attachLiber(ses)
     liveSessions.add(ses)
-    applyProxyTo(ses, false)
-    bypass.start(on => applyProxyAll(on))
+    routing.start()
+    applyProxyTo(ses)
+    probeDirect().then(ok => {
+      netDirect = ok
+      applyProxyAll()
+      if (!ok) bypass.start(() => applyProxyAll())
+      bcast()
+    })
     if (adblock.on) loadFilters(false).catch(() => {})
 
     const saved = Array.isArray(data.windows) && data.windows.length
@@ -2294,6 +2325,19 @@ if (!lock) {
       await new Promise(r => setTimeout(r, 1400))
       await grab('shell-vtab', shell)
       applySettings({ vtab: false })
+      const ext = process.env.LIBER_SHOT_URL
+      if (ext) {
+        const t = activeTab(w)
+        if (t) {
+          await Promise.race([
+            t.view.webContents.loadURL(ext).catch(() => {}),
+            new Promise(r => setTimeout(r, 22000)),
+          ])
+          await new Promise(r => setTimeout(r, 3000))
+          await grab('page-external', t.view)
+          console.log('SHOT external', ext, t.view.webContents.getTitle(), t.view.webContents.getURL())
+        }
+      }
       console.log('SHOTS DONE')
       app.quit()
     }, 1500)

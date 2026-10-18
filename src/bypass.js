@@ -7,7 +7,7 @@ const EXE = path.join(__dirname, '..', 'engine', 'ciadpi.exe')
 const PORT = 1079
 const MAX_FAILS = 30
 const PROBE_TIMEOUT = 12000
-const PROBE_HOSTS = ['discord.com', 'youtube.com', 'instagram.com']
+const PROBE_HOSTS = ['youtube.com']
 
 const STRATEGIES = [
   {
