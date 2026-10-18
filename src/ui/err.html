@@ -43,7 +43,7 @@
 <body>
   <div>
     <div class="code" id="code"></div>
-    <h2>страница не открылась</h2>
+    <h2 id="title">страница не открылась</h2>
     <div class="hint">если повторяется — канал режется сильнее обычного. попробуй позже.</div>
     <div class="u" id="url"></div>
     <a class="retry" id="retry">попробовать ещё раз</a>
@@ -56,6 +56,11 @@
     const r = document.getElementById('retry')
     r.href = u
     r.textContent = 'попробовать ещё раз'
+    if ((p.get('c') || '') === 'crash') {
+      document.getElementById('title').textContent = 'страница ушла в перегрузку'
+      document.querySelector('.hint').textContent = 'вкладка не отвечала — восстанови её, нажав кнопку ниже'
+      r.textContent = 'восстановить вкладку'
+    }
   </script>
 </body>
 </html>

@@ -1658,6 +1658,18 @@ ipcMain.handle('tab:pin', (e, id, on) => {
   const w = W_ofTab(t)
   if (w) setPinned(w, id, on)
 })
+ipcMain.handle('tab:reorder', (e, ids) => {
+  const t = tabById(Array.isArray(ids) ? ids[0] : null)
+  const w = t ? W_ofTab(t) : wOfEvent(e)
+  if (!w || !Array.isArray(ids)) return
+  const byId = new Map(w.tabs.map(x => [x.id, x]))
+  const ordered = []
+  for (const id of ids) { const x = byId.get(id); if (x) ordered.push(x) }
+  const pinned = ordered.filter(x => x.pinned)
+  const rest = ordered.filter(x => !x.pinned)
+  w.tabs = pinned.concat(rest).concat(w.tabs.filter(x => !ordered.includes(x)))
+  sendState(w)
+})
 ipcMain.handle('grp:new', (e, name, tabId) => {
   const t = tabId ? tabById(tabId) : null
   const w = t ? W_ofTab(t) : wOfEvent(e)
@@ -2221,6 +2233,15 @@ if (!lock) {
       key('d', ['control'])
       await wait(400)
       console.log('ST bm back:', data.bookmarks.length)
+      console.log('ST tab reorder:')
+      const order0 = w0.tabs.map(t => t.id)
+      await w0.win.webContents.executeJavaScript(`(function(ids){ window.liber.tabOrder(ids) })(${JSON.stringify(order0.slice().reverse())})`)
+      await wait(500)
+      const order1 = w0.tabs.map(t => t.id)
+      console.log('ST tabs reversed:', JSON.stringify(order1), '| ok:', JSON.stringify(order1) === JSON.stringify(order0.slice().reverse()))
+      await w0.win.webContents.executeJavaScript(`(function(ids){ window.liber.tabOrder(ids) })(${JSON.stringify(order0)})`)
+      await wait(300)
+      console.log('ST tabs restored:', JSON.stringify(w0.tabs.map(t => t.id)) === JSON.stringify(order0))
       console.log('ST popup window.open:')
       n = w0.tabs.length
       await wc0.executeJavaScript(`window.open('https://example.com/?popup', '_blank'); 1`)

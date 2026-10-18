@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld('liber', {
   dataList: () => ipcRenderer.invoke('data:site-list'),
   dataClear: host => ipcRenderer.invoke('data:site-clear', host),
   dataClearAll: () => ipcRenderer.invoke('data:site-clear-all'),
+  tabOrder: ids => ipcRenderer.invoke('tab:reorder', ids),
   chrome: on => ipcRenderer.invoke('chrome', on),
   full: () => ipcRenderer.invoke('win:full'),
   reader: () => ipcRenderer.invoke('tab:reader'),
