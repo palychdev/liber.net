@@ -7,16 +7,17 @@ const routing = require('./routing')
 const storage = require('./storage')
 const { Adblock, regDomain } = require('./adblock')
 
-const DATA_DIR = path.join(app.getPath('appData'), 'liber.net')
+const ENV_DIR = process.env.LIBER_USERDATA
+const DATA_DIR = ENV_DIR ? path.resolve(ENV_DIR) : path.join(app.getPath('appData'), 'liber.net')
 const LEGACY_DIR = path.join(app.getPath('appData'), 'Liber')
 try {
-  if (!fs.existsSync(DATA_DIR) && fs.existsSync(LEGACY_DIR)) fs.renameSync(LEGACY_DIR, DATA_DIR)
+  if (!ENV_DIR && !fs.existsSync(DATA_DIR) && fs.existsSync(LEGACY_DIR)) fs.renameSync(LEGACY_DIR, DATA_DIR)
 } catch (_) {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
     const src = path.join(LEGACY_DIR, 'state.json')
     const dst = path.join(DATA_DIR, 'state.json')
-    if (fs.existsSync(src) && !fs.existsSync(dst)) fs.copyFileSync(src, dst)
+    if (!ENV_DIR && fs.existsSync(src) && !fs.existsSync(dst)) fs.copyFileSync(src, dst)
   } catch (_) {}
 }
 app.setPath('userData', DATA_DIR)
