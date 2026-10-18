@@ -156,7 +156,7 @@ function closeTabSearch() {
 tsqEl.addEventListener('input', renderTsearch)
 
 function showTabMenu(t, x, y) {
-  popMenu(tmenuEl, x, y, [
+  const items = [
     { label: 'обновить', action: () => window.liber.reload(t.id) },
     { label: 'дублировать', action: () => window.liber.dupTab(t.id) },
     { label: t.pinned ? 'открепить вкладку' : 'закрепить вкладку', action: () => window.liber.pinTab(t.id, !t.pinned) },
@@ -165,7 +165,100 @@ function showTabMenu(t, x, y) {
     { label: 'закрыть', hint: 'Ctrl+W', action: () => window.liber.closeTab(t.id) },
     { label: 'закрыть другие', action: () => window.liber.closeOthers(t.id) },
     { label: 'закрыть вправо', action: () => window.liber.closeRight(t.id) },
+  ]
+  if (state) {
+    const groups = state.groups || []
+    if (groups.length || t.group) items.push(null)
+    for (const g of groups) {
+      if (g.id === t.group) continue
+      items.push({ label: g.collapsed ? 'в свёрнутую группу «' + g.name + '»' : 'в группу «' + g.name + '»', action: () => window.liber.grpAssign(t.id, g.id) })
+    }
+    if (t.group) items.push({ label: 'убрать из группы', action: () => window.liber.grpAssign(t.id, '') })
+    items.push({ label: 'новая группа для вкладки', action: () => window.liber.grpNew('', t.id) })
+  }
+  popMenu(tmenuEl, x, y, items)
+}
+
+function grpChip(g) {
+  const c = document.createElement('div')
+  c.className = 'grp' + (g.collapsed ? ' off' : '')
+  c.style.setProperty('--gc', g.color)
+  c.title = g.name + ' · вкладок: ' + g.count
+  const dot = document.createElement('span')
+  dot.className = 'gdot'
+  const name = document.createElement('span')
+  name.className = 'gname'
+  name.textContent = g.name
+  c.append(dot, name)
+  if (g.collapsed) {
+    const cnt = document.createElement('span')
+    cnt.className = 'gcnt'
+    cnt.textContent = String(g.count)
+    c.append(cnt)
+  }
+  c.addEventListener('click', () => window.liber.grpCollapse(g.id))
+  c.addEventListener('contextmenu', e => {
+    e.preventDefault()
+    showGrpMenu(g, e.clientX, e.clientY)
+  })
+  return c
+}
+
+function showGrpMenu(g, x, y) {
+  popMenu(tmenuEl, x, y, [
+    { label: g.collapsed ? 'развернуть группу' : 'свернуть группу', action: () => window.liber.grpCollapse(g.id) },
+    { label: 'переименовать', action: () => renameGroup(g) },
+    { label: 'сменить цвет', action: () => window.liber.grpColor(g.id) },
+    null,
+    { label: 'разгруппировать', action: () => window.liber.grpDel(g.id) },
   ])
+}
+
+function renameGroup(g) {
+  const chip = [...tabsEl.querySelectorAll('.grp')].find(c => c.style.getPropertyValue('--gc') === g.color && c.querySelector('.gname') && c.querySelector('.gname').textContent === g.name)
+  if (!chip) return
+  const nameEl = chip.querySelector('.gname')
+  const inp = document.createElement('input')
+  inp.className = 'ginp'
+  inp.value = g.name
+  inp.size = Math.max(5, Math.min(18, g.name.length + 2))
+  nameEl.replaceWith(inp)
+  inp.focus()
+  inp.select()
+  let done = false
+  const commit = ok => {
+    if (done) return
+    done = true
+    if (ok && inp.value.trim() && inp.value.trim() !== g.name) window.liber.grpRename(g.id, inp.value.trim())
+    else render(state)
+  }
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation()
+    if (e.key === 'Enter') commit(true)
+    else if (e.key === 'Escape') commit(false)
+  })
+  inp.addEventListener('blur', () => commit(true))
+}
+
+function renderTabs(s) {
+  const groups = new Map((s.groups || []).map(g => [g.id, g]))
+  const out = []
+  const started = new Set()
+  for (const t of s.tabs) {
+    const g = t.group ? groups.get(t.group) : null
+    if (g && !started.has(g.id)) {
+      started.add(g.id)
+      out.push(grpChip(g))
+    }
+    if (g && g.collapsed && !t.active) continue
+    const el = tabEl(t)
+    if (g) {
+      el.classList.add('grped')
+      el.style.setProperty('--gc', g.color)
+    }
+    out.push(el)
+  }
+  tabsEl.replaceChildren(...out)
 }
 
 function showMainMenu(x, y) {
@@ -375,7 +468,7 @@ function renderLock(a) {
 
 function render(s) {
   state = s
-  tabsEl.replaceChildren(...s.tabs.map(tabEl))
+  renderTabs(s)
   engineEl.classList.toggle('off', !s.engine)
   dlsEl.textContent = s.dls > 0 ? '↓ ' + (s.dlsName || s.dls) + (s.dlsPct ? ' ' + s.dlsPct + '%' : '') : ''
   dlsEl.classList.toggle('busy', s.dls > 0)

@@ -17,6 +17,7 @@ const ENGINES = {
   yandex: { label: 'яндекс', url: 'https://yandex.ru/search/?text=%s', keyword: 'y' },
   bing: { label: 'bing', url: 'https://www.bing.com/search?q=%s', keyword: 'b' },
 }
+const GRP_COLORS = ['#8a7bff', '#3ddc97', '#ffb454', '#ff5f56', '#4aa8ff', '#c77bff', '#5ed3d3', '#8b8d97']
 const PAGES = ['start', 'hist', 'bms', 'settings', 'dls']
 const INDEX = path.join(__dirname, 'ui', 'index.html')
 const START_URL = 'file://' + path.join(__dirname, 'ui', 'start.html').replace(/\\/g, '/')
@@ -251,8 +252,10 @@ function sendState(w) {
         muted: tm,
         audible: ta && !tm,
         pinned: !!t.pinned,
+        group: t.group || '',
       }
     }),
+    groups: w.groups.map(g => ({ id: g.id, name: g.name, color: g.color, collapsed: !!g.collapsed, count: w.tabs.filter(t => t.group === g.id).length })),
     engine: bypass.status(),
     dls: act.length,
     dlsName: act.length ? act[0].name : '',
@@ -410,11 +413,91 @@ function setPinned(w, id, on) {
   const t = w.tabs.find(x => x.id === id)
   if (!t || !!t.pinned === !!on) return
   t.pinned = !!on
+  if (t.pinned) t.group = ''
   const rest = w.tabs.filter(x => x.id !== id)
   let idx = 0
   while (idx < rest.length && rest[idx].pinned) idx += 1
   rest.splice(idx, 0, t)
   w.tabs = rest
+  sendState(w)
+}
+
+function grpById(w, gid) {
+  return w.groups.find(g => g.id === gid) || null
+}
+
+function grpReorder(w) {
+  const pinned = w.tabs.filter(t => t.pinned)
+  const rest = w.tabs.filter(t => !t.pinned)
+  const out = []
+  const done = new Set()
+  for (const t of rest) {
+    if (!t.group) {
+      out.push(t)
+      continue
+    }
+    if (!grpById(w, t.group)) {
+      t.group = ''
+      out.push(t)
+      continue
+    }
+    if (done.has(t.group)) continue
+    done.add(t.group)
+    for (const x of rest) if (x.group === t.group) out.push(x)
+  }
+  w.tabs = pinned.concat(out)
+}
+
+function grpNew(w, name) {
+  const g = {
+    id: 'g' + Date.now().toString(36) + Math.floor(Math.random() * 4096).toString(36),
+    name: String(name || '').trim().slice(0, 40) || 'группа ' + (w.groups.length + 1),
+    color: GRP_COLORS[w.groups.length % GRP_COLORS.length],
+    collapsed: false,
+  }
+  w.groups.push(g)
+  return g
+}
+
+function grpAssign(w, id, gid) {
+  const t = w.tabs.find(x => x.id === id)
+  if (!t) return
+  if (gid && !grpById(w, gid)) return
+  if (t.pinned) t.pinned = false
+  t.group = gid || ''
+  grpReorder(w)
+  storage.save(data)
+  sendState(w)
+}
+
+function grpDel(w, gid) {
+  for (const t of w.tabs) if (t.group === gid) t.group = ''
+  w.groups = w.groups.filter(g => g.id !== gid)
+  storage.save(data)
+  sendState(w)
+}
+
+function grpCollapse(w, gid, on) {
+  const g = grpById(w, gid)
+  if (!g) return
+  g.collapsed = on === undefined ? !g.collapsed : !!on
+  sendState(w)
+}
+
+function grpRename(w, gid, name) {
+  const g = grpById(w, gid)
+  const n = String(name || '').trim().slice(0, 40)
+  if (!g || !n) return
+  g.name = n
+  storage.save(data)
+  sendState(w)
+}
+
+function grpColor(w, gid) {
+  const g = grpById(w, gid)
+  if (!g) return
+  g.color = GRP_COLORS[(GRP_COLORS.indexOf(g.color) + 1) % GRP_COLORS.length]
+  storage.save(data)
   sendState(w)
 }
 
@@ -426,7 +509,12 @@ function persist() {
       const b = maxed ? null : w.win.getBounds()
       return {
         bounds: b,
-        tabs: w.tabs.map(t => (/^https?:/i.test(t.url) || t.pinned ? { url: t.url, pinned: t.pinned ? 1 : 0 } : null)).filter(Boolean),
+        tabs: w.tabs.map(t => {
+          if (!/^https?:/i.test(t.url) && !t.pinned) return null
+          const g = grpById(w, t.group)
+          return { url: t.url, pinned: t.pinned ? 1 : 0, group: g ? g.name : '' }
+        }).filter(Boolean),
+        groups: w.groups.map(g => ({ name: g.name, color: g.color, collapsed: g.collapsed ? 1 : 0 })),
       }
     })
   delete data.window
@@ -756,7 +844,7 @@ function newTab(url, w) {
       preload: path.join(__dirname, 'content-preload.js'),
     },
   })
-  const t = { id, view, url: url || START_URL, title: '', loading: false, favicon: '', pinned: false }
+  const t = { id, view, url: url || START_URL, title: '', loading: false, favicon: '', pinned: false, group: '' }
   w.tabs.push(t)
   attachEvents(t, w)
   w.win.contentView.addChildView(view)
@@ -774,6 +862,8 @@ function switchTab(w, id) {
   const prev = w.tabs.find(t => t.id === w.activeId)
   const next = w.tabs.find(t => t.id === id)
   if (!next || prev === next) return
+  const g = next.group ? grpById(w, next.group) : null
+  if (g && g.collapsed) g.collapsed = false
   if (prev) {
     try { prev.view.setVisible(false) } catch (_) { w.win.contentView.removeChildView(prev.view) }
   }
@@ -1429,7 +1519,7 @@ function createWindow(opts) {
       spellcheck: false,
     },
   })
-  const w = { win: bw, tabs: [], activeId: null, expanded: false, vidFs: false, closedTabs: [], isPrivate: !!o.private, ses: s }
+  const w = { win: bw, tabs: [], activeId: null, expanded: false, vidFs: false, closedTabs: [], groups: [], isPrivate: !!o.private, ses: s }
   windows.push(w)
   bw.setMenuBarVisibility(false)
   bw.once('ready-to-show', () => bw.show())
@@ -1466,15 +1556,29 @@ function createWindow(opts) {
   }
   if (o.private) bw.loadFile(INDEX, { query: { priv: '1' } })
   else bw.loadFile(INDEX)
+  for (const sg of (Array.isArray(o.groups) ? o.groups : [])) {
+    if (!sg || !sg.name) continue
+    const g = grpNew(w, sg.name)
+    if (sg.color) g.color = sg.color
+    if (sg.collapsed) g.collapsed = true
+  }
   for (const it of (o.tabs && o.tabs.length ? o.tabs : [null])) {
     const raw = typeof it === 'string' ? it : (it && (it.url || it.u)) || START_URL
     const id = newTab(raw, w)
-    if (it && typeof it === 'object' && (it.pinned || it.p)) {
+    if (it && typeof it === 'object') {
       const t = w.tabs.find(x => x.id === id)
-      if (t) t.pinned = true
+      if (t) {
+        if (it.pinned || it.p) t.pinned = true
+        const want = it.group || it.g
+        if (want && t) {
+          const g = w.groups.find(x => x.name === want)
+          if (g) t.group = g.id
+        }
+      }
     }
   }
   if (w.tabs.some(t => t.pinned)) w.tabs = w.tabs.filter(t => t.pinned).concat(w.tabs.filter(t => !t.pinned))
+  if (w.groups.length) grpReorder(w)
   focusedW = w
   return w
 }
@@ -1497,6 +1601,34 @@ ipcMain.handle('tab:pin', (e, id, on) => {
   const t = tabById(id)
   const w = W_ofTab(t)
   if (w) setPinned(w, id, on)
+})
+ipcMain.handle('grp:new', (e, name, tabId) => {
+  const t = tabId ? tabById(tabId) : null
+  const w = t ? W_ofTab(t) : wOfEvent(e)
+  if (!w) return
+  const g = grpNew(w, name)
+  if (t) grpAssign(w, t.id, g.id)
+  else sendState(w)
+})
+ipcMain.handle('grp:assign', (e, tabId, gid) => {
+  const w = W_ofTab(tabById(tabId))
+  if (w) grpAssign(w, tabId, gid)
+})
+ipcMain.handle('grp:collapse', (e, gid, on) => {
+  const w = wOfEvent(e)
+  if (w) grpCollapse(w, gid, on)
+})
+ipcMain.handle('grp:rename', (e, gid, name) => {
+  const w = wOfEvent(e)
+  if (w) grpRename(w, gid, name)
+})
+ipcMain.handle('grp:color', (e, gid) => {
+  const w = wOfEvent(e)
+  if (w) grpColor(w, gid)
+})
+ipcMain.handle('grp:del', (e, gid) => {
+  const w = wOfEvent(e)
+  if (w) grpDel(w, gid)
 })
 ipcMain.handle('tab:dup', (e, id) => {
   const t = tabById(id)
@@ -2255,6 +2387,30 @@ if (!lock) {
       rw.win.close()
       await wait(500)
       console.log('ST windows after pin test:', windows.length)
+      console.log('ST tab groups:')
+      const gA = grpNew(w0, 'работа')
+      const gTabs = w0.tabs.filter(t => !t.pinned).slice(0, 2)
+      grpAssign(w0, gTabs[0].id, gA.id)
+      grpAssign(w0, gTabs[1].id, gA.id)
+      console.log('ST grp order:', JSON.stringify(w0.tabs.map(t => (t.pinned ? 'P' : t.group === gA.id ? 'G' : '-'))))
+      await wait(500)
+      console.log('ST grp ui:', await js(`JSON.stringify({ chips: document.querySelectorAll('.grp').length, name: (document.querySelector('.grp .gname') || {}).textContent, grped: document.querySelectorAll('.tab.grped').length })`))
+      grpCollapse(w0, gA.id)
+      await wait(500)
+      console.log('ST grp collapsed:', await js(`JSON.stringify({ chips: document.querySelectorAll('.grp').length, tabs: document.querySelectorAll('.tab').length, cnt: (document.querySelector('.grp .gcnt') || {}).textContent })`))
+      grpRename(w0, gA.id, 'работа 2')
+      grpColor(w0, gA.id)
+      console.log('ST grp edited:', JSON.stringify(w0.groups.map(g => g.name + '/' + g.color + '/' + (g.collapsed ? 'off' : 'on'))))
+      persist()
+      const savedG = storage.load().windows[0]
+      console.log('ST grp persisted:', JSON.stringify(savedG.groups), JSON.stringify(savedG.tabs.slice(0, 2)))
+      const rw2 = createWindow({ tabs: savedG.tabs, groups: savedG.groups, bounds: { width: 1000, height: 700 } })
+      await wait(1600)
+      console.log('ST grp restored:', JSON.stringify(rw2.groups.map(g => g.name + '/' + (g.collapsed ? 'off' : 'on'))), rw2.tabs.filter(t => t.group).length, 'windows:', windows.length)
+      rw2.win.close()
+      await wait(500)
+      grpDel(w0, gA.id)
+      console.log('ST grp deleted:', w0.groups.length, w0.tabs.filter(t => t.group).length, 'windows:', windows.length)
       console.log('ST sqlite:', (() => { try { require('node:sqlite'); return 'yes' } catch (_) { return 'no' } })())
       console.log('ST passwords:')
       pwSave('example.com', 'user1', 'secret1')
