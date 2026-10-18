@@ -2102,6 +2102,11 @@ ipcMain.handle('bypass:reprobe', async () => {
   await bypass.reprobe()
   return bypass.info()
 })
+ipcMain.handle('bypass:strategies', () => bypass.getStrategies())
+ipcMain.handle('bypass:set-strategy', async (e, idx) => {
+  const ok = await bypass.setStrategy(idx)
+  return bypass.info()
+})
 ipcMain.handle('data:site-list', async (e) => {
   const w = wOfEvent(e)
   const s = (w && w.ses) || ses

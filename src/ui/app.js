@@ -55,7 +55,6 @@ function looksUrl(q) {
 function tabEl(t) {
   const d = document.createElement('div')
   d.className = 'tab' + (t.active ? ' on' : '') + (t.loading ? ' ld' : '') + (t.muted ? ' mut' : '') + (t.pinned ? ' pinned' : '')
-  d.dataset.id = t.id
   d.title = t.title || ''
   if (t.muted) {
     const m = document.createElement('span')
@@ -605,38 +604,6 @@ document.addEventListener('click', e => {
   if (spEl.contains(e.target)) return
   hideSitePanel()
 })
-
-let dragTab = null
-tabsEl.addEventListener('mousedown', e => {
-  const tab = e.target.closest('.tab')
-  if (!tab) return
-  if (e.button === 1) { e.preventDefault(); window.liber.closeTab(tab.dataset.id); return }
-  if (e.button !== 0 || e.target.closest('.x')) return
-  dragTab = { el: tab, x: e.clientX, y: e.clientY }
-  tab.classList.add('drag-start')
-  window.addEventListener('mousemove', onTabMove)
-  window.addEventListener('mouseup', onTabUp)
-})
-function onTabMove(e) {
-  if (!dragTab) return
-  if (Math.abs(e.clientX - dragTab.x) < 4 && Math.abs(e.clientY - dragTab.y) < 4) return
-  const cur = document.elementFromPoint(e.clientX, e.clientY)?.closest('.tab')
-  if (cur && cur !== dragTab.el && cur.parentElement === tabsEl) {
-    const rect = cur.getBoundingClientRect()
-    const vertical = document.body.classList.contains('vtab')
-    const after = vertical ? e.clientY > rect.top + rect.height / 2 : e.clientX > rect.left + rect.width / 2
-    tabsEl.insertBefore(dragTab.el, after ? cur.nextSibling : cur)
-  }
-}
-function onTabUp() {
-  window.removeEventListener('mousemove', onTabMove)
-  window.removeEventListener('mouseup', onTabUp)
-  if (!dragTab) return
-  dragTab.el.classList.remove('drag-start')
-  const ids = [...tabsEl.children].map(c => c.dataset.id).filter(Boolean)
-  if (ids.length) window.liber.tabOrder(ids)
-  dragTab = null
-}
 
 window.liber.state(render)
 window.liber.onBm(renderBm)

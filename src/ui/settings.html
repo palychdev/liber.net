@@ -168,7 +168,7 @@
       </div>
       <div class="kv">
         <span class="k">стратегия</span>
-        <span class="v" id="engstrat">определяется…</span>
+        <select id="engstrat"></select>
       </div>
       <div class="kv">
         <span class="k"></span>
@@ -276,8 +276,20 @@
       const es = $('engstrat')
       try {
         const inf = await P.bypassInfo()
-        es.textContent = inf.name + (inf.working ? ' · работает' : ' · резерв')
-        es.className = 'v' + (inf.working ? ' ok' : ' bad')
+        const strats = await P.bypassStrategies()
+        es.replaceChildren(...strats.map(s => {
+          const o = document.createElement('option')
+          o.value = s.i
+          o.textContent = s.name + (s.active ? ' (текущая)' : '') + (s.working ? ' · работает' : ' · резерв')
+          return o
+        }))
+        es.value = inf.name ? strats.find(s => s.name === inf.name)?.i ?? 0 : ''
+        es.className = inf.working ? 'ok' : 'bad'
+        es.addEventListener('change', async () => {
+          const inf2 = await P.bypassSetStrategy(Number(es.value))
+          es.className = inf2.working ? 'ok' : 'bad'
+          es.options[es.selectedIndex].textContent = inf2.name + (inf2.working ? ' · работает' : ' · резерв')
+        })
       } catch (_) { es.textContent = 'неизвестно' }
       const er = $('engreprobe')
       er.addEventListener('click', async () => {
@@ -285,11 +297,11 @@
         er.textContent = 'проверяю…'
         try {
           const inf = await P.bypassReprobe()
-          es.textContent = inf.name + (inf.working ? ' · работает' : ' · резерв')
-          es.className = 'v' + (inf.working ? ' ok' : ' bad')
+          es.options[es.selectedIndex].textContent = inf.name + (inf.working ? ' · работает' : ' · резерв')
+          es.className = inf.working ? 'ok' : 'bad'
           e.textContent = inf.port ? 'работает' : 'выключен'
           e.className = 'st ' + (inf.port ? 'ok' : 'bad')
-        } catch (_) { es.textContent = 'ошибка проверки' }
+        } catch (_) { es.options[es.selectedIndex].textContent = 'ошибка проверки' }
         er.disabled = false
         er.textContent = 'проверить стратегии снова'
       })

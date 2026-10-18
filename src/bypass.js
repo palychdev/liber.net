@@ -28,6 +28,7 @@ let proc = null
 let onFlag = false
 let fails = 0
 let started = false
+let liveIdx = 0
 let liveArgs = STRATEGIES[0].args
 let liveName = STRATEGIES[0].name
 let liveWorking = false
@@ -183,4 +184,21 @@ function info() {
   return { name: liveName, working: liveWorking, port: onFlag ? PORT : 0 }
 }
 
-module.exports = { start, status, port, info, reprobe }
+function getStrategies() {
+  return STRATEGIES.map((s, i) => ({ i, name: s.name, active: i === liveIdx, working: i === liveIdx && liveWorking }))
+}
+
+async function setStrategy(idx) {
+  idx = Number(idx)
+  if (!Number.isInteger(idx) || idx < 0 || idx >= STRATEGIES.length) return false
+  liveIdx = idx
+  liveArgs = STRATEGIES[idx].args
+  liveName = STRATEGIES[idx].name
+  liveWorking = false
+  if (proc) { try { proc.kill() } catch (_) {}; proc = null; onFlag = false; broadcast() }
+  spawnEngine()
+  broadcast()
+  return true
+}
+
+module.exports = { start, status, port, info, getStrategies, setStrategy, reprobe }

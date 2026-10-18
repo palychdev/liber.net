@@ -136,6 +136,8 @@ if (location.protocol === 'file:' || location.protocol === 'liber:') {
     siteClear: host => ipcRenderer.invoke('data:site-clear', host),
     bypassInfo: () => ipcRenderer.invoke('bypass:info'),
     bypassReprobe: () => ipcRenderer.invoke('bypass:reprobe'),
+    bypassStrategies: () => ipcRenderer.invoke('bypass:strategies'),
+    bypassSetStrategy: idx => ipcRenderer.invoke('bypass:set-strategy', idx),
     settingsExport: () => ipcRenderer.invoke('settings:export'),
     settingsImport: () => ipcRenderer.invoke('settings:import'),
   })
