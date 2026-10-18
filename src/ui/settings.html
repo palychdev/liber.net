@@ -271,7 +271,7 @@
       $('privAutoplay').value = p.autoplay || 'allow'
       $('privClear').checked = p.clearOnExit === true
       const e = $('eng')
-      e.textContent = s.engine ? 'работает' : 'выключен'
+      e.textContent = s.engineMode === 'direct' ? 'канал свободен' : s.engine ? 'работает' : 'не сработал'
       e.className = 'st ' + (s.engine ? 'ok' : 'bad')
       const es = $('engstrat')
       try {

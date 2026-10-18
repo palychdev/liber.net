@@ -625,7 +625,9 @@ function render(s) {
   renderTabs(s)
   document.body.classList.toggle('vtab', !!s.vtab)
   engineEl.classList.toggle('off', !s.engine)
-  engineEl.title = s.engine ? 'обход блокировок: работает' : 'обход блокировок: выключен'
+  engineEl.title = s.engineMode === 'direct'
+    ? 'канал свободен: обход не нужен'
+    : s.engine ? 'обход блокировок: работает' : 'обход блокировок: не сработал'
   dlstxtEl.textContent = s.dls > 0 ? (s.dlsName || s.dls) + (s.dlsPct ? ' ' + s.dlsPct + '%' : '') : ''
   dlsEl.classList.toggle('busy', s.dls > 0)
   starEl.classList.toggle('on', !!s.isBm)

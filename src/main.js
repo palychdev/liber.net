@@ -33,7 +33,7 @@ const ENGINES = {
   yandex: { label: 'яндекс', url: 'https://yandex.ru/search/?text=%s', keyword: 'y' },
   bing: { label: 'bing', url: 'https://www.bing.com/search?q=%s', keyword: 'b' },
 }
-const GRP_COLORS = ['#8a7bff', '#3ddc97', '#ffb454', '#ff5f56', '#4aa8ff', '#c77bff', '#5ed3d3', '#8b8d97']
+const GRP_COLORS = ['#c9a468', '#7fa88b', '#b5794f', '#b3605f', '#7288a8', '#9b7fa8', '#6f9b9b', '#8b8d97']
 const RAIL_W = 236
 const PAGES = ['start', 'hist', 'bms', 'settings', 'dls']
 const INDEX = path.join(__dirname, 'ui', 'index.html')
@@ -898,7 +898,7 @@ function newTab(url, w) {
   w.tabs.push(t)
   attachEvents(t, w)
   w.win.contentView.addChildView(view)
-  try { view.setBackgroundColor('#0d0e12') } catch (_) {}
+  try { view.setBackgroundColor('#0e0e10') } catch (_) {}
   view.setBounds({ x: 0, y: chromeH(w), width: 0, height: 0 })
   view.webContents.loadURL(t.url)
   w.activeId = id
@@ -1209,10 +1209,29 @@ function openReader(w, t, article) {
 }
 
 function attachLiber(s) {
+  const MIME = {
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf',
+  }
   try {
     s.protocol.handle('liber', req => {
-      let name = ''
-      try { name = new URL(req.url).hostname } catch (_) {}
+      let u = null
+      try { u = new URL(req.url) } catch (_) {}
+      const asset = u ? decodeURIComponent(u.pathname).replace(/^\/+/, '') : ''
+      const ext = path.extname(asset).toLowerCase()
+      if (asset && MIME[ext] && !asset.includes('..')) {
+        try {
+          const buf = fs.readFileSync(path.join(__dirname, 'ui', asset))
+          return new Response(buf, { headers: { 'content-type': MIME[ext] } })
+        } catch (_) {
+          return new Response('', { status: 404 })
+        }
+      }
+      let name = u ? u.hostname : ''
       if (!/^[a-z][a-z0-9-]*$/.test(name)) name = 'start'
       let body = null
       try { body = fs.readFileSync(path.join(__dirname, 'ui', name + '.html')) } catch (_) {}
@@ -1599,7 +1618,7 @@ function createWindow(opts) {
     minWidth: 920,
     minHeight: 600,
     frame: false,
-    backgroundColor: '#0d0e12',
+    backgroundColor: '#0e0e10',
     show: false,
     title: o.private ? 'liber.net — инкогнито' : 'liber.net',
     webPreferences: {

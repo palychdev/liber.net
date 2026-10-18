@@ -3,128 +3,134 @@
 <head>
   <meta charset="utf-8">
   <title>Новая вкладка — liber.net</title>
+  <link rel="stylesheet" href="page.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { min-height: 100%; }
-    body {
-      display: grid;
-      place-items: center;
-      background: #0d0e12;
-      color: #e8e9ee;
-      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-      font-size: 13px;
-    }
-    ::-webkit-scrollbar { width: 10px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
-    .wrap { width: min(680px, 92vw); padding: 0 0 56px; }
-    .mark {
-      font-size: 40px;
-      font-weight: 600;
-      letter-spacing: -0.4px;
-      text-align: center;
-    }
-    .mark i { font-style: normal; color: #666974; }
-    .tag { margin-top: 10px; text-align: center; color: #8f929e; font-size: 13px; }
-    form { margin-top: 28px; }
-    .sbox {
-      position: relative;
+    body { padding: 0; }
+
+    .home {
+      width: min(640px, 92vw);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 15vh 0 56px;
       display: flex;
-      align-items: center;
+      flex-direction: column;
     }
+
+    .brand { text-align: center; }
+    .mark { font-size: 34px; font-weight: 600; letter-spacing: -0.6px; line-height: 1.1; }
+    .mark span { color: var(--dim2); }
+    .tag { margin-top: 9px; color: var(--dim); font-size: 12.5px; }
+
+    .sbox { position: relative; display: flex; align-items: center; margin-top: 30px; }
     .sbox svg {
       position: absolute;
-      left: 16px;
-      width: 15px; height: 15px;
-      color: #666974;
+      left: 15px;
+      width: 16px;
+      height: 16px;
+      color: var(--dim2);
       pointer-events: none;
     }
-    input {
+    .sbox input {
       width: 100%;
       height: 44px;
-      padding: 0 18px 0 42px;
-      border-radius: 22px;
-      border: 1px solid transparent;
-      background: rgba(255, 255, 255, 0.06);
-      color: #e8e9ee;
-      font-size: 14px;
+      padding: 0 16px 0 43px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--pill);
+      color: var(--txt);
+      font-size: 13.5px;
       font-family: inherit;
       outline: none;
       transition: background 0.12s, border-color 0.12s;
     }
-    input::placeholder { color: #666974; }
-    input:hover { background: rgba(255, 255, 255, 0.09); }
-    input:focus { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.13); }
-    .freq { margin-top: 36px; }
+    .sbox input::placeholder { color: var(--dim2); }
+    .sbox input:hover { background: var(--pill-hover); }
+    .sbox input:focus { background: rgba(255, 255, 255, 0.085); border-color: var(--line2); }
+
+    .freq { margin-top: 34px; }
     .freq h3 {
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 600;
-      color: #666974;
-      letter-spacing: 0.6px;
+      color: var(--dim2);
+      letter-spacing: 0.7px;
       text-transform: uppercase;
-      text-align: center;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
-    .ftiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+    .ftiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
+
     .ftile {
       position: relative;
+      padding: 12px 8px 10px;
       border-radius: 10px;
-      padding: 14px 8px 12px;
-      background: transparent;
-      cursor: pointer;
       text-align: center;
+      cursor: pointer;
       transition: background 0.12s;
     }
-    .ftile:hover { background: rgba(255, 255, 255, 0.06); }
+    .ftile:hover { background: var(--pill); }
     .fdot {
-      width: 40px; height: 40px;
-      border-radius: 50%;
+      width: 40px;
+      height: 40px;
       margin: 0 auto 9px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 17px;
+      border-radius: 11px;
+      border: 1px solid var(--line);
+      background: var(--pill);
+      color: var(--txt);
+      font-size: 15px;
       font-weight: 600;
-      color: #fff;
     }
-    .fhost { font-size: 12px; color: #e8e9ee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 3px; }
-    .fcount { font-size: 11px; color: #666974; }
+    .ftile:hover .fdot { border-color: var(--line2); }
+    .fhost { font-size: 12px; color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fcount { margin-top: 2px; font-size: 11px; color: var(--dim2); }
     .fdel {
       position: absolute;
-      top: 6px; right: 6px;
-      width: 20px; height: 20px;
-      display: none;
+      top: 6px;
+      right: 6px;
+      width: 22px;
+      height: 22px;
+      display: flex;
       align-items: center;
       justify-content: center;
       border: none;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.09);
-      color: #8f929e;
+      border-radius: 7px;
+      background: var(--pill-hover);
+      color: var(--dim);
       cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.12s, background 0.12s, color 0.12s;
     }
+    .ftile:hover .fdel { opacity: 1; }
     .fdel svg { width: 11px; height: 11px; display: block; }
-    .ftile:hover .fdel { display: inline-flex; }
-    .fdel:hover { background: rgba(242, 88, 92, 0.16); color: #f2585c; }
-    .links { margin-top: 34px; display: flex; gap: 6px; justify-content: center; }
+    .fdel:hover { background: rgba(226, 92, 92, 0.16); color: var(--bad); }
+
+    .links { margin-top: 34px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
     .links a {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      height: 30px;
-      padding: 0 12px;
-      border-radius: 8px;
-      color: #8f929e;
+      gap: 8px;
+      height: 34px;
+      padding: 0 13px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      color: var(--dim);
       font-size: 12.5px;
       text-decoration: none;
       cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
     }
-    .links a svg { width: 14px; height: 14px; }
-    .links a:hover { background: rgba(255, 255, 255, 0.06); color: #e8e9ee; }
+    .links a svg { width: 14px; height: 14px; color: var(--dim2); }
+    .links a:hover { background: var(--pill); color: var(--txt); border-color: var(--line2); }
+    .links a:hover svg { color: var(--txt); }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="mark">liber<i>.net</i></div>
-    <div class="tag">интернет без препятствий</div>
+  <div class="home">
+    <div class="brand">
+      <div class="mark">liber<span>.net</span></div>
+      <div class="tag">интернет без препятствий</div>
+    </div>
     <form id="f">
       <div class="sbox">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -154,6 +160,7 @@
     ;(async () => {
       let list = []
       try { list = await P.freqList() } catch (_) {}
+      if (!list || !list.length) return
       const wrap = document.createElement('div')
       wrap.className = 'freq'
       const h = document.createElement('h3')
@@ -166,9 +173,6 @@
         t.className = 'ftile'
         const dot = document.createElement('div')
         dot.className = 'fdot'
-        let hh = 0
-        for (const c of d.host) hh = ((hh << 5) - hh + c.charCodeAt(0)) | 0
-        dot.style.background = 'hsl(' + (Math.abs(hh) % 360) + ', 32%, 42%)'
         dot.textContent = d.host.charAt(0).toUpperCase()
         const name = document.createElement('div')
         name.className = 'fhost'
@@ -193,7 +197,7 @@
       }
       wrap.append(grid)
       const links = document.querySelector('.links')
-      if (links && list.length) links.parentNode.insertBefore(wrap, links)
+      links.parentNode.insertBefore(wrap, links)
     })()
   </script>
 </body>
