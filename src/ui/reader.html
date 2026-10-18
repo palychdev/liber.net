@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Режим чтения — liber.net</title>
+  <title>Режим чтения</title>
   <link rel="stylesheet" href="page.css">
   <style>
     body {
@@ -42,6 +42,13 @@
     .top button:hover { color: var(--txt); background: var(--pill-hover); }
     .top #back { margin-left: auto; }
     h1 { font-size: 33px; line-height: 1.25; font-weight: 600; margin-bottom: 26px; letter-spacing: -0.01em; }
+    #body.gone {
+      color: var(--dim2);
+      font-size: 15px;
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+      padding-top: 46px;
+      text-align: center;
+    }
     h2, h3, h4 { font-weight: 600; margin: 34px 0 12px; line-height: 1.3; }
     h2 { font-size: 25px; }
     h3 { font-size: 21px; }
@@ -78,7 +85,10 @@
 
     P.readerGet(id).then(a => {
       if (!a) {
-        document.getElementById('body').textContent = 'статья не найдена'
+        document.querySelector('.top').style.display = 'none'
+        const e = document.getElementById('body')
+        e.className = 'gone'
+        e.textContent = 'не удалось открыть статью'
         return
       }
       document.title = a.title + ' — режим чтения'

@@ -37,8 +37,8 @@ const GRP_COLORS = ['#c9a468', '#7fa88b', '#b5794f', '#b3605f', '#7288a8', '#9b7
 const RAIL_W = 236
 const PAGES = ['start', 'hist', 'bms', 'settings', 'dls']
 const INDEX = path.join(__dirname, 'ui', 'index.html')
-const START_URL = 'file://' + path.join(__dirname, 'ui', 'start.html').replace(/\\/g, '/')
-const ERR_URL = 'file://' + path.join(__dirname, 'ui', 'err.html').replace(/\\/g, '/')
+const START_URL = 'liber://start/'
+const ERR_URL = 'liber://err/'
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'liber', privileges: { standard: true, secure: true, supportFetchAPI: true } }])
 
@@ -873,7 +873,7 @@ function attachEvents(t, w) {
 
 function internalPage(name) {
   const n = PAGES.includes(name) ? name : 'start'
-  return 'file://' + path.join(__dirname, 'ui', n + '.html').replace(/\\/g, '/')
+  return 'liber://' + n + '/'
 }
 
 function newTab(url, w) {
@@ -2324,26 +2324,44 @@ if (!lock) {
       const grab = async (name, view) => {
         try { fs.writeFileSync(path.join(devDir, name + '.png'), (await view.webContents.capturePage()).toPNG()) } catch (e) { console.log('SHOT FAIL', name, e.message) }
       }
-      for (const p of ['start', 'hist', 'bms', 'dls', 'settings', 'err']) {
+      for (const p of ['start', 'hist', 'bms', 'dls', 'settings', 'err', 'reader']) {
         const t = activeTab(w)
         if (!t) break
-        const u = 'file://' + path.join(__dirname, 'ui', p + '.html').replace(/\\/g, '/')
-        if (p !== 'start') await t.view.webContents.loadURL(u).catch(() => {})
+        if (p !== 'start') await t.view.webContents.loadURL('liber://' + p + '/').catch(() => {})
         await new Promise(r => setTimeout(r, 1500))
         await grab('page-' + p, t.view)
         console.log('SHOT', p, t.view.webContents.getURL())
       }
       if (!w.win) { console.log('SHOTS DONE'); return }
       const shell = { webContents: w.win.webContents }
+      const js = code => shell.webContents.executeJavaScript(code).catch(() => {})
+      await js("(async () => { await window.liber.go(activeTab().id, 'liber://start/'); return 1 })()")
+      await new Promise(r => setTimeout(r, 1600))
       await grab('shell', shell)
-      await shell.webContents.executeJavaScript("(function(){ const b = document.getElementById('more'); const r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.right - 8, clientY: r.bottom + 2 })); return 1 })()").catch(() => {})
+      await js("(function(){ const b = document.getElementById('more'); const r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.right - 8, clientY: r.bottom + 2 })); return 1 })()")
       await new Promise(r => setTimeout(r, 700))
       await grab('shell-menu', shell)
-      await shell.webContents.executeJavaScript("document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); 1").catch(() => {})
+      await js("document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); 1")
+      await js("(async () => { const l = window.liber; await l.newTab('liber://hist/'); await l.newTab('liber://bms/'); await l.newTab('https://example.com'); return 1 })()")
+      await new Promise(r => setTimeout(r, 6500))
+      await grab('shell-tabs', shell)
+      await js("openSitePanel(); 1")
+      await new Promise(r => setTimeout(r, 800))
+      await grab('shell-panel', shell)
+      await js("hideSitePanel(); const o = document.getElementById('omni'); o.focus(); o.value = 'git'; o.dispatchEvent(new Event('input', { bubbles: true })); 1")
+      await new Promise(r => setTimeout(r, 1400))
+      await grab('shell-omni', shell)
+      await js("hideSug(); document.getElementById('omni').blur(); 1")
+      await js("(async () => { await window.liber.page('settings'); return 1 })()")
+      await new Promise(r => setTimeout(r, 1800))
+      await grab('shell-liber', shell)
       applySettings({ vtab: true })
       await new Promise(r => setTimeout(r, 1400))
       await grab('shell-vtab', shell)
       applySettings({ vtab: false })
+      await js("document.getElementById('dls').click(); 1")
+      await new Promise(r => setTimeout(r, 1400))
+      await grab('shell-dls', shell)
       const ext = process.env.LIBER_SHOT_URL
       if (ext) {
         const t = activeTab(w)
