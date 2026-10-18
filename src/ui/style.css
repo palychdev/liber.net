@@ -273,11 +273,75 @@ body.vtab #tabs .gcnt { margin-left: auto; }
   z-index: 2;
   font-size: 11px;
   color: var(--dim);
-  pointer-events: none;
+  pointer-events: auto;
 }
+.lock.ok, .lock.warn { cursor: pointer; }
+.lock:empty { pointer-events: none; }
 .lock.warn { color: #e0b341; }
 #omniwrap:has(.lock.ok) #omni,
 #omniwrap:has(.lock.warn) #omni { padding-left: 32px; }
+
+#sitepanel {
+  display: none;
+  position: fixed;
+  width: 320px;
+  background: var(--bar2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55);
+  z-index: 12;
+}
+#sitepanel.show { display: block; }
+.sphead { margin-bottom: 8px; }
+.sphost {
+  font-size: 13px;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.spsub { font-size: 11.5px; color: var(--ok); margin-top: 2px; }
+.spsub.warn { color: #e0b341; }
+.spstat {
+  font-size: 11.5px;
+  color: var(--dim);
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.splist { padding: 6px 0 2px; max-height: 258px; overflow-y: auto; }
+.spnote { font-size: 11px; color: var(--dim); padding: 4px 0 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.sprow { display: flex; align-items: center; gap: 4px; padding: 2px 0; }
+.spn { flex: 1; font-size: 12.5px; color: var(--txt); }
+.spb {
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--pill);
+  color: var(--dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+.spb:hover { background: var(--pill-hover); }
+.spb.on.def { background: rgba(255, 255, 255, 0.14); color: var(--txt); }
+.spb.on.yes { background: rgba(61, 220, 151, 0.18); color: var(--ok); border-color: rgba(61, 220, 151, 0.4); }
+.spb.on.no { background: rgba(255, 95, 86, 0.16); color: var(--bad); border-color: rgba(255, 95, 86, 0.4); }
+.spact { display: flex; gap: 6px; margin-top: 8px; }
+.spa {
+  flex: 1;
+  padding: 7px 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--pill);
+  color: var(--txt);
+  font-size: 12px;
+  cursor: pointer;
+}
+.spa:hover { background: var(--pill-hover); }
+.spa:disabled { color: var(--dim); cursor: default; }
 
 .dot {
   width: 8px; height: 8px;

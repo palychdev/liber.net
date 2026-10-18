@@ -1288,6 +1288,34 @@ function srList() {
   return Object.keys(siteRules).sort().map(h => ({ host: h, rule: Object.assign({}, siteRules[h]) }))
 }
 
+async function clearSiteData(sesObj, host) {
+  const h = String(host || '').trim().toLowerCase().replace(/^www\./, '')
+  if (!h || !sesObj) return 0
+  const parts = h.split('.')
+  const doms = new Set([h])
+  if (parts.length > 2) doms.add(parts.slice(-2).join('.'))
+  let removed = 0
+  for (const d of doms) {
+    const list = await sesObj.cookies.get({ domain: d }).catch(() => [])
+    for (const c of list) {
+      const url = (c.secure ? 'https://' : 'http://') + String(c.domain || d).replace(/^\./, '') + (c.path || '/')
+      try {
+        await sesObj.cookies.remove(url, c.name)
+        removed += 1
+      } catch (_) {}
+    }
+  }
+  const storages = ['cookies', 'localstorage', 'indexdb', 'cachestorage', 'serviceworkers', 'filesystem', 'shadercache', 'websql']
+  for (const d of doms) {
+    for (const origin of ['https://' + d, 'http://' + d]) {
+      try {
+        await sesObj.clearStorageData({ origin, storages })
+      } catch (_) {}
+    }
+  }
+  return removed
+}
+
 const PERM_KINDS = {
   'clipboard-read': 'clipboard',
   'display-capture': 'screen',
@@ -1935,6 +1963,41 @@ ipcMain.handle('ads:refresh', () => loadFilters(true))
 ipcMain.handle('sr:list', () => srList())
 ipcMain.handle('sr:set', (e, host, patch) => srSend(host, patch))
 ipcMain.handle('sr:del', (e, host) => { srDel(host); return true })
+ipcMain.handle('site:info', (e) => {
+  const w = wOfEvent(e)
+  const t = (w && activeTab(w)) || wcToTab(e.sender)
+  const u = (t && t.url) || ''
+  let host = ''
+  let proto = ''
+  try {
+    const p = new URL(u)
+    host = p.hostname.toLowerCase()
+    proto = p.protocol
+  } catch (_) {}
+  const local = !host || (proto !== 'https:' && proto !== 'http:')
+  const base = local ? '' : normHost(host)
+  const exact = local ? null : siteRules[host]
+  const parent = local ? null : siteRules[regDomain(host)]
+  return {
+    url: u,
+    host: local ? '' : host,
+    base,
+    ruleHost: local ? '' : (exact ? host : parent ? regDomain(host) : base),
+    secure: !local && proto === 'https:',
+    local,
+    blocked: local ? 0 : adblock.pageCount(host),
+    blockedAll: adblock.blocked,
+    adblockOn: !!(adblock.on && adblock.ready),
+    rule: Object.assign({}, exact || parent || {}),
+  }
+})
+ipcMain.handle('site:clear-data', async (e) => {
+  const w = wOfEvent(e)
+  const t = (w && activeTab(w)) || wcToTab(e.sender)
+  const host = t ? hostOfUrl(t.url) : ''
+  if (!host) return -1
+  return clearSiteData((w && w.ses) || ses, host)
+})
 ipcMain.handle('eng:list', () => engList())
 ipcMain.handle('eng:save', (e, p) => engSave(p))
 ipcMain.handle('eng:del', (e, id) => engDel(id))
@@ -2341,6 +2404,34 @@ if (!lock) {
       console.log('ST sr popup after reset:', w0.tabs.length > tabsBefore, w0.tabs.length)
       while (w0.tabs.length > tabsBefore) closeTab(w0, w0.tabs[w0.tabs.length - 1].id)
       console.log('ST sr rules roundtrip:', JSON.stringify(srSend('a.example.com', { js: 'deny' })), JSON.stringify(srList()), (srDel('a.example.com'), JSON.stringify(srList())))
+      console.log('ST site panel:')
+      const spc0 = adblock.pageCount('127.0.0.1')
+      adblock.check('https://ads.doubleclick.net/pixel.gif', 'image', lurl)
+      console.log('ST site panel count:', spc0, '->', adblock.pageCount('127.0.0.1'), '| rules:', adblock.rules)
+      await wc0.loadURL(lurl)
+      await wait(1500)
+      switchTab(w0, w0.tabs.find(t => t.view.webContents === wc0).id)
+      await wait(500)
+      await js(`(function(){ document.getElementById('lock').click(); return 1 })()`)
+      await wait(600)
+      console.log('ST site panel ui:', await js(`JSON.stringify({ shown: document.getElementById('sitepanel').classList.contains('show'), host: (document.querySelector('#sitepanel .sphost') || {}).textContent || '', sub: (document.querySelector('#sitepanel .spsub') || {}).textContent || '', stat: (document.querySelector('#sitepanel .spstat') || {}).textContent || '', rows: document.querySelectorAll('#sitepanel .sprow').length, acts: [...document.querySelectorAll('#sitepanel .spa')].map(b => b.textContent).join('|'), x: Math.round(document.getElementById('sitepanel').getBoundingClientRect().left), y: Math.round(document.getElementById('sitepanel').getBoundingClientRect().top) })`))
+      await js(`(function(){ document.querySelectorAll('#sitepanel .sprow')[0].querySelectorAll('.spb')[2].click(); return 1 })()`)
+      await wait(600)
+      console.log('ST site panel deny:', await js(`JSON.stringify({ on: document.querySelectorAll('#sitepanel .sprow')[0].querySelectorAll('.spb')[2].classList.contains('on'), sole: document.querySelectorAll('#sitepanel .sprow')[0].querySelectorAll('.spb.on').length })`), JSON.stringify(srList().filter(r => r.host === '127.0.0.1')))
+      const cookiesBefore = (await ses.cookies.get({ url: lurl })).length
+      await js(`(function(){ document.querySelectorAll('#sitepanel .spa')[0].click(); return 1 })()`)
+      await wait(1600)
+      console.log('ST site data clear:', cookiesBefore, '->', (await ses.cookies.get({ url: lurl })).length, '| note:', await js(`JSON.stringify({ shown: document.getElementById('sitepanel').classList.contains('show') })`))
+      await js(`(function(){ document.getElementById('lock').click(); return 1 })()`)
+      await wait(500)
+      console.log('ST site panel reopen:', await js(`JSON.stringify({ shown: document.getElementById('sitepanel').classList.contains('show'), marked: document.querySelectorAll('#sitepanel .sprow')[0].querySelectorAll('.spb.on')[0].textContent })`))
+      await js(`(function(){ document.getElementById('bar').click(); return 1 })()`)
+      await wait(400)
+      console.log('ST site panel outside:', await js(`JSON.stringify({ shown: document.getElementById('sitepanel').classList.contains('show') })`))
+      await js(`(async function(){ document.getElementById('lock').click(); await new Promise(r => setTimeout(r, 400)); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); return 1 })()`)
+      await wait(400)
+      console.log('ST site panel esc:', await js(`JSON.stringify({ shown: document.getElementById('sitepanel').classList.contains('show') })`))
+      srDel('127.0.0.1')
       await clearTestCookies()
       srv.close()
       console.log('ST engines:')

@@ -10,6 +10,7 @@ const cntEl = document.getElementById('cnt')
 const engineEl = document.getElementById('engine')
 const dlsEl = document.getElementById('dls')
 const lockEl = document.getElementById('lock')
+const spEl = document.getElementById('sitepanel')
 const moreEl = document.getElementById('more')
 const menuEl = document.getElementById('menu')
 const tmenuEl = document.getElementById('tmenu')
@@ -41,6 +42,7 @@ let sugSel = -1
 let comp = null
 let lastVal = ''
 let grew = false
+let spInfo = null
 
 function activeTab() {
   return state && state.tabs.find(t => t.active)
@@ -468,6 +470,117 @@ function renderLock(a) {
   }
 }
 
+const SP_PERMS = [
+  ['camera', 'камера'],
+  ['microphone', 'микрофон'],
+  ['notifications', 'уведомления'],
+  ['location', 'геолокация'],
+  ['clipboard', 'буфер обмена'],
+  ['screen', 'захват экрана'],
+  ['popups', 'всплывающие окна'],
+  ['ads', 'реклама'],
+  ['js', 'javascript'],
+  ['cookies', 'куки'],
+  ['images', 'картинки']
+]
+
+function hideSitePanel() {
+  spEl.classList.remove('show')
+  spInfo = null
+}
+
+async function openSitePanel() {
+  spInfo = await window.liber.siteInfo()
+  renderSitePanel()
+}
+
+function renderSitePanel() {
+  const info = spInfo
+  if (!info) return
+  const r = lockEl.getBoundingClientRect()
+  spEl.style.left = Math.max(8, Math.min(r.left - 10, innerWidth - 340)) + 'px'
+  spEl.style.top = Math.round(r.bottom + 8) + 'px'
+  const head = document.createElement('div')
+  head.className = 'sphead'
+  if (info.local) {
+    const h = document.createElement('div')
+    h.className = 'sphost'
+    h.textContent = 'страница Liber'
+    const sub = document.createElement('div')
+    sub.className = 'spsub'
+    sub.textContent = 'внутренняя страница, сайта нет'
+    head.append(h, sub)
+    spEl.replaceChildren(head)
+    spEl.classList.add('show')
+    return
+  }
+  const h = document.createElement('div')
+  h.className = 'sphost'
+  h.textContent = (info.secure ? '🔒 ' : '⚠ ') + info.host
+  const sub = document.createElement('div')
+  sub.className = 'spsub' + (info.secure ? '' : ' warn')
+  sub.textContent = info.secure ? 'соединение защищено' : 'соединение не защищено'
+  head.append(h, sub)
+  const stat = document.createElement('div')
+  stat.className = 'spstat'
+  stat.textContent = info.adblockOn
+    ? 'заблокировано на сайте: ' + info.blocked
+    : 'блокировка рекламы выключена'
+  const list = document.createElement('div')
+  list.className = 'splist'
+  for (const [k, label] of SP_PERMS) {
+    const v = info.rule[k] || ''
+    const row = document.createElement('div')
+    row.className = 'sprow'
+    const n = document.createElement('span')
+    n.className = 'spn'
+    n.textContent = label
+    row.append(n)
+    for (const p of [['', '—', 'по умолчанию'], ['allow', '✓', 'разрешить'], ['deny', '✕', 'запретить']]) {
+      const b = document.createElement('button')
+      b.className = 'spb ' + (p[0] === 'allow' ? 'yes' : p[0] === 'deny' ? 'no' : 'def') + (v === p[0] ? ' on' : '')
+      b.textContent = p[1]
+      b.title = p[2]
+      b.addEventListener('click', async () => {
+        await window.liber.srSet(info.ruleHost || info.base, { [k]: p[0] })
+        const r = Object.assign({}, spInfo.rule)
+        if (p[0]) r[k] = p[0]
+        else delete r[k]
+        spInfo.rule = r
+        renderSitePanel()
+      })
+      row.append(b)
+    }
+    list.append(row)
+  }
+  if (info.ruleHost && info.ruleHost !== info.base) {
+    const note = document.createElement('div')
+    note.className = 'spnote'
+    note.textContent = 'действуют общие правила для ' + info.ruleHost
+    list.append(note)
+  }
+  const acts = document.createElement('div')
+  acts.className = 'spact'
+  const clear = document.createElement('button')
+  clear.className = 'spa'
+  clear.textContent = 'очистить данные сайта'
+  clear.addEventListener('click', async () => {
+    if (clear.disabled) return
+    clear.disabled = true
+    clear.textContent = 'очистка…'
+    const n = await window.liber.siteClearData()
+    clear.textContent = n > 0 ? 'удалено куки: ' + n : 'данные очищены'
+    setTimeout(hideSitePanel, 700)
+  })
+  const open = document.createElement('button')
+  open.className = 'spa'
+  open.textContent = 'настройки сайтов'
+  open.addEventListener('click', () => { hideSitePanel(); window.liber.page('settings') })
+  acts.append(clear, open)
+  spEl.replaceChildren(head, stat, list, acts)
+  spEl.classList.add('show')
+}
+
 function render(s) {
   state = s
   renderTabs(s)
@@ -479,11 +592,18 @@ function render(s) {
   starEl.textContent = s.isBm ? '★' : '☆'
   const a = activeTab(s) ? activeTab(s) : null
   renderLock(a)
+  if (spInfo && spInfo.url !== ((a && a.url) || '')) hideSitePanel()
   if (a && document.activeElement !== omni && !comp) {
     omni.value = a.url && !/^file:/i.test(a.url) ? a.url : ''
     lastVal = omni.value
   }
 }
+
+document.addEventListener('click', e => {
+  if (!spEl.classList.contains('show')) return
+  if (spEl.contains(e.target)) return
+  hideSitePanel()
+})
 
 window.liber.state(render)
 window.liber.onBm(renderBm)
@@ -503,6 +623,11 @@ window.liber.onOmniPaste(text => {
 })
 
 addEl.addEventListener('click', () => window.liber.newTab())
+lockEl.addEventListener('click', e => {
+  e.stopPropagation()
+  if (spEl.classList.contains('show')) hideSitePanel()
+  else openSitePanel()
+})
 reldEl.addEventListener('click', () => { const a = activeTab(); if (a) window.liber.reload(a.id) })
 backEl.addEventListener('click', () => { const a = activeTab(); if (a) window.liber.back(a.id) })
 dlsEl.addEventListener('click', () => window.liber.page('dls'))
@@ -559,6 +684,7 @@ omni.addEventListener('keydown', e => {
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (tsearchEl.classList.contains('show')) { closeTabSearch(); return }
+    if (spEl.classList.contains('show')) { hideSitePanel(); return }
     closeMenus()
     if (findMode) exitFind()
     return

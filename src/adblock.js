@@ -190,6 +190,7 @@ class Adblock {
     this.rules = 0
     this.blocked = 0
     this.sites = new Map()
+    this.pages = new Map()
     this.cosmeticCache = new Map()
     this.allow = new FilterSet()
     this.block = new FilterSet()
@@ -354,9 +355,19 @@ class Adblock {
       this.blocked += 1
       const key = regDomain(host)
       this.sites.set(key, (this.sites.get(key) || 0) + 1)
+      if (docHost) {
+        const page = regDomain(docHost)
+        this.pages.set(page, (this.pages.get(page) || 0) + 1)
+        if (this.pages.size > 3000) this.pages.delete(this.pages.keys().next().value)
+      }
       return true
     }
     return false
+  }
+
+  pageCount(docHost) {
+    const key = regDomain(String(docHost || '').toLowerCase())
+    return this.pages.get(key) || 0
   }
 
   stats() {
