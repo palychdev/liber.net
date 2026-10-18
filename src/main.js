@@ -5,8 +5,22 @@ const bypass = require('./bypass')
 const storage = require('./storage')
 const { Adblock, regDomain } = require('./adblock')
 
-const BAR_H = 52
-const OMNI_H = 44
+const DATA_DIR = path.join(app.getPath('appData'), 'liber.net')
+const LEGACY_DIR = path.join(app.getPath('appData'), 'Liber')
+try {
+  if (!fs.existsSync(DATA_DIR) && fs.existsSync(LEGACY_DIR)) fs.renameSync(LEGACY_DIR, DATA_DIR)
+} catch (_) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
+    const src = path.join(LEGACY_DIR, 'state.json')
+    const dst = path.join(DATA_DIR, 'state.json')
+    if (fs.existsSync(src) && !fs.existsSync(dst)) fs.copyFileSync(src, dst)
+  } catch (_) {}
+}
+app.setPath('userData', DATA_DIR)
+
+const BAR_H = 46
+const OMNI_H = 42
 const BM_H = 34
 const SUG_H = 160
 const ENGINE_PORT = 1079
@@ -269,8 +283,8 @@ function sendState(w) {
     vtab: !!settings.vtab,
     isBm: !!(a && a.url && /^https?:/i.test(a.url) && bmIndex(a.url) >= 0),
   })
-  if (a && a.title) w.win.setTitle((w.isPrivate ? 'инкогнито — ' : '') + a.title + ' — Liber')
-  else w.win.setTitle(w.isPrivate ? 'Liber — инкогнито' : 'Liber')
+  if (a && a.title) w.win.setTitle((w.isPrivate ? 'инкогнито — ' : '') + a.title + ' — liber.net')
+  else w.win.setTitle(w.isPrivate ? 'liber.net — инкогнито' : 'liber.net')
 }
 
 function sendBm() {
@@ -863,7 +877,7 @@ function newTab(url, w) {
   w.tabs.push(t)
   attachEvents(t, w)
   w.win.contentView.addChildView(view)
-  try { view.setBackgroundColor('#0b0c10') } catch (_) {}
+  try { view.setBackgroundColor('#0d0e12') } catch (_) {}
   view.setBounds({ x: 0, y: chromeH(w), width: 0, height: 0 })
   view.webContents.loadURL(t.url)
   w.activeId = id
@@ -1371,7 +1385,7 @@ async function askPermission(wc, host, kind) {
     cancelId: 1,
     noLink: true,
     message: host + ' запрашивает ' + (PERM_LABELS[kind] || kind),
-    detail: 'liber запомнит выбор. поменять можно в настройках, раздел «разрешения сайтов».',
+    detail: 'liber.net запомнит выбор. поменять можно в настройках, раздел «разрешения сайтов».',
   }
   let res = null
   try {
@@ -1564,9 +1578,9 @@ function createWindow(opts) {
     minWidth: 920,
     minHeight: 600,
     frame: false,
-    backgroundColor: '#0b0c10',
+    backgroundColor: '#0d0e12',
     show: false,
-    title: o.private ? 'Liber — инкогнито' : 'Liber',
+    title: o.private ? 'liber.net — инкогнито' : 'liber.net',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -1858,7 +1872,7 @@ ipcMain.handle('settings:export', async (e) => {
   const w = wOfEvent(e)
   try {
     const res = await dialog.showSaveDialog(w && !w.win.isDestroyed() ? w.win : null, {
-      title: 'экспорт настроек Liber',
+      title: 'экспорт настроек liber.net',
       defaultPath: path.join(app.getPath('downloads'), 'liber-settings-' + new Date().toISOString().slice(0, 10) + '.json'),
       filters: [{ name: 'JSON', extensions: ['json'] }],
     })
@@ -1881,7 +1895,7 @@ ipcMain.handle('settings:import', async (e) => {
   const w = wOfEvent(e)
   try {
     const res = await dialog.showOpenDialog(w && !w.win.isDestroyed() ? w.win : null, {
-      title: 'импорт настроек Liber',
+      title: 'импорт настроек liber.net',
       filters: [{ name: 'JSON', extensions: ['json'] }],
       properties: ['openFile'],
     })
@@ -2253,6 +2267,36 @@ if (!lock) {
     }
     setInterval(() => persist(), 20000)
     if (process.env.LIBER_SELFTEST) setTimeout(selftest, 2500)
+    if (process.env.LIBER_SHOTS) setTimeout(async () => {
+      const devDir = path.join(__dirname, '..', '_dev')
+      try { fs.mkdirSync(devDir, { recursive: true }) } catch (_) {}
+      const w = createWindow({ bounds: { width: 1440, height: 900 }, tabs: ['liber://start'] })
+      const grab = async (name, view) => {
+        try { fs.writeFileSync(path.join(devDir, name + '.png'), (await view.webContents.capturePage()).toPNG()) } catch (e) { console.log('SHOT FAIL', name, e.message) }
+      }
+      for (const p of ['start', 'hist', 'bms', 'dls', 'settings', 'err']) {
+        const t = activeTab(w)
+        if (!t) break
+        const u = 'file://' + path.join(__dirname, 'ui', p + '.html').replace(/\\/g, '/')
+        if (p !== 'start') await t.view.webContents.loadURL(u).catch(() => {})
+        await new Promise(r => setTimeout(r, 1500))
+        await grab('page-' + p, t.view)
+        console.log('SHOT', p, t.view.webContents.getURL())
+      }
+      if (!w.win) { console.log('SHOTS DONE'); return }
+      const shell = { webContents: w.win.webContents }
+      await grab('shell', shell)
+      await shell.webContents.executeJavaScript("(function(){ const b = document.getElementById('more'); const r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.right - 8, clientY: r.bottom + 2 })); return 1 })()").catch(() => {})
+      await new Promise(r => setTimeout(r, 700))
+      await grab('shell-menu', shell)
+      await shell.webContents.executeJavaScript("document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); 1").catch(() => {})
+      applySettings({ vtab: true })
+      await new Promise(r => setTimeout(r, 1400))
+      await grab('shell-vtab', shell)
+      applySettings({ vtab: false })
+      console.log('SHOTS DONE')
+      app.quit()
+    }, 1500)
   })
 
   async function selftest() {
@@ -2405,7 +2449,7 @@ if (!lock) {
       console.log('ST settings cards:', await stTab.view.webContents.executeJavaScript(`JSON.stringify({ imp: !!document.getElementById('imp'), impText: (document.getElementById('imp').textContent || '').slice(0, 30), impRows: document.querySelectorAll('#imp .kv').length, pwcount: document.getElementById('pwcount').textContent, ab: !!document.getElementById('adblock'), absText: (document.getElementById('abs').textContent || '').slice(0, 24), sradd: !!document.getElementById('sradd') })`))
       await js(`(function(){ document.querySelectorAll('.tab')[0].click(); return 1 })()`)
       await wait(500)
-      console.log('ST lock icon:', await js(`(() => { const l = document.getElementById('lock'); return l ? l.title + '|' + l.textContent : 'none' })()`))
+      console.log('ST lock icon:', await js(`(() => { const l = document.getElementById('lock'); return l ? l.title + '|' + l.className + '|svg:' + l.querySelectorAll('svg').length : 'none' })()`))
       console.log('ST search engine switch:')
       applySettings({ search: 'yandex' })
       console.log('ST toUrl search:', toUrl('привет мир'))
@@ -2594,6 +2638,7 @@ if (!lock) {
       await js(`(function(){ document.getElementById('lock').click(); return 1 })()`)
       await wait(600)
       console.log('ST site panel ui:', await js(`JSON.stringify({ shown: document.getElementById('sitepanel').classList.contains('show'), host: (document.querySelector('#sitepanel .sphost') || {}).textContent || '', sub: (document.querySelector('#sitepanel .spsub') || {}).textContent || '', stat: (document.querySelector('#sitepanel .spstat') || {}).textContent || '', rows: document.querySelectorAll('#sitepanel .sprow').length, acts: [...document.querySelectorAll('#sitepanel .spa')].map(b => b.textContent).join('|'), x: Math.round(document.getElementById('sitepanel').getBoundingClientRect().left), y: Math.round(document.getElementById('sitepanel').getBoundingClientRect().top) })`))
+      await shot('sitepanel')
       await js(`(function(){ document.querySelectorAll('#sitepanel .sprow')[0].querySelectorAll('.spb')[2].click(); return 1 })()`)
       await wait(600)
       console.log('ST site panel deny:', await js(`JSON.stringify({ on: document.querySelectorAll('#sitepanel .sprow')[0].querySelectorAll('.spb')[2].classList.contains('on'), sole: document.querySelectorAll('#sitepanel .sprow')[0].querySelectorAll('.spb.on').length })`), JSON.stringify(srList().filter(r => r.host === '127.0.0.1')))
