@@ -2310,8 +2310,10 @@ if (!lock) {
     const saved = Array.isArray(data.windows) && data.windows.length
       ? data.windows
       : (data.window || (data.tabs && data.tabs.length) ? [{ bounds: data.window, tabs: data.tabs || [] }] : [])
-    if (settings.restore && saved.length) {
-      for (const sw of saved) createWindow({ bounds: sw.bounds, tabs: sw.tabs })
+    const restorable = settings.restore ? saved.filter(sw => sw && Array.isArray(sw.tabs) && sw.tabs.length) : []
+    console.log('RESTORE windows', restorable.length, 'of', saved.length)
+    if (restorable.length) {
+      for (const sw of restorable.slice(0, 6)) createWindow({ bounds: sw.bounds, tabs: sw.tabs })
     } else {
       createWindow({})
     }
