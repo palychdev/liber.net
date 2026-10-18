@@ -38,6 +38,8 @@ const GRP_COLORS = ['#c9a468', '#7fa88b', '#b5794f', '#b3605f', '#7288a8', '#9b7
 const RAIL_W = 236
 const PAGES = ['start', 'hist', 'bms', 'settings', 'dls']
 const INDEX = path.join(__dirname, 'ui', 'index.html')
+const ICON_FILE = path.join(__dirname, '..', 'build', 'icon.ico')
+const APP_ICON = app.isPackaged || !fs.existsSync(ICON_FILE) ? undefined : ICON_FILE
 const START_URL = 'liber://start/'
 const ERR_URL = 'liber://err/'
 
@@ -209,6 +211,8 @@ function toUrl(q) {
 let netDirect = false
 
 function probeDirect() {
+  if (process.env.LIBER_BYPASS === 'off') return Promise.resolve(true)
+  if (process.env.LIBER_BYPASS === 'force') return Promise.resolve(false)
   return new Promise(resolve => {
     const s = tls.connect({ host: 'www.youtube.com', port: 443, servername: 'www.youtube.com', timeout: 6000 })
     const done = ok => {
@@ -1619,6 +1623,7 @@ function createWindow(opts) {
     minWidth: 920,
     minHeight: 600,
     frame: false,
+    icon: APP_ICON,
     backgroundColor: '#0e0e10',
     show: false,
     title: o.private ? 'liber.net — инкогнито' : 'liber.net',
@@ -2294,6 +2299,7 @@ if (!lock) {
   })
 
   app.whenReady().then(() => {
+    app.setAppUserModelId('net.liber.browser')
     ses = session.fromPartition('persist:liber')
     setupSession(ses)
     attachLiber(ses)

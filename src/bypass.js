@@ -1,9 +1,12 @@
 const { spawn } = require('child_process')
+const { app } = require('electron')
 const fs = require('fs')
 const net = require('net')
 const path = require('path')
 
-const EXE = path.join(__dirname, '..', 'engine', 'ciadpi.exe')
+const EXE = app.isPackaged
+  ? path.join(process.resourcesPath, 'engine', 'ciadpi.exe')
+  : path.join(__dirname, '..', 'engine', 'ciadpi.exe')
 const PORT = 1079
 const MAX_FAILS = 30
 const PROBE_TIMEOUT = 12000
