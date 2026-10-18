@@ -18,6 +18,7 @@ const ENGINES = {
   bing: { label: 'bing', url: 'https://www.bing.com/search?q=%s', keyword: 'b' },
 }
 const GRP_COLORS = ['#8a7bff', '#3ddc97', '#ffb454', '#ff5f56', '#4aa8ff', '#c77bff', '#5ed3d3', '#8b8d97']
+const RAIL_W = 236
 const PAGES = ['start', 'hist', 'bms', 'settings', 'dls']
 const INDEX = path.join(__dirname, 'ui', 'index.html')
 const START_URL = 'file://' + path.join(__dirname, 'ui', 'start.html').replace(/\\/g, '/')
@@ -33,7 +34,7 @@ let ses = null
 let seq = 0
 let focusedW = null
 const data = storage.load()
-const settings = Object.assign({ search: 'ddg', homepage: '', downloadDir: '', bmBar: true, restore: true, zoom: {} }, data.settings || {})
+const settings = Object.assign({ search: 'ddg', homepage: '', downloadDir: '', bmBar: true, restore: true, vtab: false, zoom: {} }, data.settings || {})
 data.settings = settings
 data.engines = Array.isArray(data.engines) ? data.engines.filter(e => e && typeof e.id === 'string' && typeof e.url === 'string' && e.url.includes('%s')) : []
 const userEngines = data.engines
@@ -213,7 +214,7 @@ function sendDls() {
 }
 
 function sendSettings() {
-  eachW(w => w.win.webContents.send('settings', { bmBar: settings.bmBar, search: settings.search, homepage: settings.homepage }))
+  eachW(w => w.win.webContents.send('settings', { bmBar: settings.bmBar, search: settings.search, homepage: settings.homepage, vtab: !!settings.vtab }))
 }
 
 function bcast() {
@@ -265,6 +266,7 @@ function sendState(w) {
     muted,
     audible,
     private: w.isPrivate,
+    vtab: !!settings.vtab,
     isBm: !!(a && a.url && /^https?:/i.test(a.url) && bmIndex(a.url) >= 0),
   })
   if (a && a.title) w.win.setTitle((w.isPrivate ? 'инкогнито — ' : '') + a.title + ' — Liber')
@@ -526,9 +528,15 @@ function applyLayout(w) {
   if (!w || w.win.isDestroyed()) return
   const [wd, ht] = w.win.getContentSize()
   const top = chromeH(w)
+  const left = railW(w)
   for (const t of w.tabs) {
-    t.view.setBounds({ x: 0, y: top, width: wd, height: Math.max(0, ht - top) })
+    t.view.setBounds({ x: left, y: top, width: Math.max(0, wd - left), height: Math.max(0, ht - top) })
   }
+}
+
+function railW(w) {
+  if (!settings.vtab || !w || w.vidFs) return 0
+  return RAIL_W
 }
 
 function recordHistory(url, title, w) {
@@ -547,6 +555,7 @@ function applySettings(patch) {
   if (typeof patch.downloadDir === 'string') settings.downloadDir = patch.downloadDir
   if (typeof patch.bmBar === 'boolean') settings.bmBar = patch.bmBar
   if (typeof patch.restore === 'boolean') settings.restore = patch.restore
+  if (typeof patch.vtab === 'boolean') settings.vtab = patch.vtab
   if (typeof patch.adblock === 'boolean') {
     settings.adblock = patch.adblock
     adblock.on = patch.adblock
@@ -2411,6 +2420,15 @@ if (!lock) {
       await wait(500)
       grpDel(w0, gA.id)
       console.log('ST grp deleted:', w0.groups.length, w0.tabs.filter(t => t.group).length, 'windows:', windows.length)
+      console.log('ST vtab:')
+      applySettings({ vtab: true })
+      await wait(800)
+      console.log('ST vtab ui:', await js(`JSON.stringify({ cls: document.body.classList.contains('vtab'), tabs: document.querySelectorAll('.tab').length, pos: getComputedStyle(document.getElementById('tabs')).position, w: Math.round(document.getElementById('tabs').getBoundingClientRect().width) })`))
+      const vTab = activeTab(w0)
+      console.log('ST vtab bounds:', vTab ? JSON.stringify(vTab.view.getBounds()) : '-', JSON.stringify(w0.win.getContentSize()))
+      applySettings({ vtab: false })
+      await wait(800)
+      console.log('ST vtab off:', await js(`JSON.stringify({ cls: document.body.classList.contains('vtab'), pos: getComputedStyle(document.getElementById('tabs')).position })`), vTab ? JSON.stringify(vTab.view.getBounds()) : '-')
       console.log('ST sqlite:', (() => { try { require('node:sqlite'); return 'yes' } catch (_) { return 'no' } })())
       console.log('ST passwords:')
       pwSave('example.com', 'user1', 'secret1')

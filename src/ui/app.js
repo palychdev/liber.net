@@ -33,7 +33,7 @@ window.addEventListener('error', e => {
 let state = null
 let bms = []
 let bmf = []
-let settings = { bmBar: true, search: 'ddg', homepage: '' }
+let settings = { bmBar: true, search: 'ddg', homepage: '', vtab: false }
 let findMode = false
 let sugTimer = null
 let sugItems = []
@@ -269,6 +269,8 @@ function showMainMenu(x, y) {
     { label: 'новое окно', hint: 'Ctrl+N', action: () => window.liber.newWindow(false) },
     { label: 'новое окно инкогнито', hint: 'Ctrl+Shift+N', action: () => window.liber.newWindow(true) },
     null,
+    { label: settings.vtab ? 'вкладки сверху' : 'вкладки слева', action: () => window.liber.stSet({ vtab: !settings.vtab }) },
+    null,
     { label: 'история', hint: 'Ctrl+H', action: () => window.liber.page('hist') },
     { label: 'загрузки', hint: 'Ctrl+J', action: () => window.liber.page('dls') },
     { label: 'закладки', hint: 'Ctrl+Shift+O', action: () => window.liber.page('bms') },
@@ -469,6 +471,7 @@ function renderLock(a) {
 function render(s) {
   state = s
   renderTabs(s)
+  document.body.classList.toggle('vtab', !!s.vtab)
   engineEl.classList.toggle('off', !s.engine)
   dlsEl.textContent = s.dls > 0 ? '↓ ' + (s.dlsName || s.dls) + (s.dlsPct ? ' ' + s.dlsPct + '%' : '') : ''
   dlsEl.classList.toggle('busy', s.dls > 0)
@@ -484,7 +487,7 @@ function render(s) {
 
 window.liber.state(render)
 window.liber.onBm(renderBm)
-window.liber.onSettings(s => { settings = Object.assign(settings, s); renderBm() })
+window.liber.onSettings(s => { settings = Object.assign(settings, s); document.body.classList.toggle('vtab', !!settings.vtab); renderBm() })
 window.liber.onOmni(() => { omni.focus(); omni.select(); querySug() })
 window.liber.onFind(() => enterFind())
 window.liber.onHideSug(() => hideSug())
