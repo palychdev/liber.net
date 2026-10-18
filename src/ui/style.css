@@ -342,6 +342,11 @@ body.vtab #tabs .gcnt { margin-left: auto; }
 }
 .spa:hover { background: var(--pill-hover); }
 .spa:disabled { color: var(--dim); cursor: default; }
+.datarow { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.datarow .dh { flex: 1; color: var(--txt); font-size: 13px; }
+.datarow .dn { color: var(--dim); font-size: 11.5px; white-space: nowrap; }
+.datarow .da { padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--pill); color: var(--txt); cursor: pointer; }
+.datarow .da:hover { background: var(--pill-hover); }
 
 .dot {
   width: 8px; height: 8px;

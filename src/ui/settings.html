@@ -81,6 +81,19 @@
     </div>
 
     <div class="card">
+      <h3>Данные сайтов</h3>
+      <div class="about">куки и локальное хранилище сайтов, которые вы посещали. удаление данных сайта выходит из сессий на нём.</div>
+      <div class="kv" style="flex-wrap: wrap; gap: 8px">
+        <span class="k">сайтов с данными:</span>
+        <span class="v" id="datacount">…</span>
+        <button class="mini" id="dataclear">очистить данные всех сайтов</button>
+        <button class="mini danger" id="dataclearall">всё: кэш, куки, история</button>
+      </div>
+      <div id="datalist"></div>
+      <div class="hint" id="datares"></div>
+    </div>
+
+    <div class="card">
       <h3>Блокировка рекламы</h3>
       <div class="kv">
         <span class="k">фильтры</span>
@@ -221,6 +234,48 @@
         'chromium <b>' + s.chrome + '</b> · electron <b>' + s.electron + '</b><br>' +
         '<a href="https://github.com/palychdev/liber.net" id="gh">github.com/palychdev/liber.net</a>'
       $('gh').addEventListener('click', ev => { ev.preventDefault(); P.newTab('https://github.com/palychdev/liber.net') })
+      await loadData()
+      document.getElementById("dataclear").addEventListener("click", async () => {
+        const list = await P.siteList()
+        for (const d of list) await P.siteClear(d.host)
+        document.getElementById("datares").textContent = "все данные сайтов удалены"
+        await loadData()
+      })
+      document.getElementById("dataclearall").addEventListener("click", async () => {
+        const nn = await P.clearData({ history: true, cache: true, site: true })
+        document.getElementById("datares").textContent = "всё очищено: кэш, куки, история"
+        await loadData()
+      })
+    }
+
+    async function loadData() {
+      const list = await P.siteList()
+      document.getElementById("datacount").textContent = list.length
+      const dl = document.getElementById("datalist")
+      dl.replaceChildren(...list.map(d => {
+        const row = document.createElement("div")
+        row.className = "datarow"
+        const h = document.createElement("div")
+        h.className = "dh"
+        h.textContent = d.host
+        const n = document.createElement("div")
+        n.className = "dn"
+        n.textContent = d.cookies + " куки" + (d.session ? " · " + d.session + " сеанс" : "") + (d.secure ? " · https" : "")
+        const b = document.createElement("button")
+        b.className = "da"
+        b.textContent = "удалить данные"
+        b.addEventListener("click", async () => {
+          b.disabled = true
+          b.textContent = "удаление…"
+          const nn = await P.siteClear(d.host)
+          b.disabled = false
+          b.textContent = "удалить данные"
+          document.getElementById("datares").textContent = d.host + ": " + (nn > 0 ? nn + " куки" : "данные") + " удалены"
+          await loadData()
+        })
+        row.append(h, n, b)
+        return row
+      }))
     }
 
     async function loadAdb() {

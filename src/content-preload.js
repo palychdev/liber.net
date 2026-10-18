@@ -130,5 +130,7 @@ if (location.protocol === 'file:' || location.protocol === 'liber:') {
     engList: () => ipcRenderer.invoke('eng:list'),
     engSave: p => ipcRenderer.invoke('eng:save', p),
     engDel: id => ipcRenderer.invoke('eng:del', id),
+    siteList: () => ipcRenderer.invoke('data:site-list'),
+    siteClear: host => ipcRenderer.invoke('data:site-clear', host),
   })
 }

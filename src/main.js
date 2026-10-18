@@ -1998,6 +1998,44 @@ ipcMain.handle('site:clear-data', async (e) => {
   if (!host) return -1
   return clearSiteData((w && w.ses) || ses, host)
 })
+ipcMain.handle('data:site-list', async (e) => {
+  const w = wOfEvent(e)
+  const s = (w && w.ses) || ses
+  const cookies = await s.cookies.get({}).catch(() => [])
+  const map = new Map()
+  for (const c of cookies) {
+    const d = String(c.domain || '').replace(/^\./, '')
+    if (!d) continue
+    const it = map.get(d) || { host: d, cookies: 0, session: 0, secure: 0 }
+    it.cookies += 1
+    if (!c.expirationDate) it.session += 1
+    if (c.secure) it.secure += 1
+    map.set(d, it)
+  }
+  return [...map.values()].sort((a, b) => b.cookies - a.cookies)
+})
+ipcMain.handle('data:site-clear', async (e, host) => {
+  const w = wOfEvent(e)
+  return clearSiteData((w && w.ses) || ses, host)
+})
+ipcMain.handle('data:site-clear-all', async (e) => {
+  const w = wOfEvent(e)
+  const s = (w && w.ses) || ses
+  const cookies = await s.cookies.get({}).catch(() => [])
+  let removed = 0
+  for (const c of cookies) {
+    const url = (c.secure ? 'https://' : 'http://') + String(c.domain || '').replace(/^\./, '') + (c.path || '/')
+    try {
+      await s.cookies.remove(url, c.name)
+      removed += 1
+    } catch (_) {}
+  }
+  try {
+    await s.clearStorageData({ storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage', 'serviceworkers', 'filesystem', 'shadercache', 'websql'] })
+  } catch (_) {}
+  try { await s.clearHistory() } catch (_) {}
+  return removed
+})
 ipcMain.handle('eng:list', () => engList())
 ipcMain.handle('eng:save', (e, p) => engSave(p))
 ipcMain.handle('eng:del', (e, id) => engDel(id))
@@ -2398,6 +2436,21 @@ if (!lock) {
       switchTab(w0, w0.tabs.find(t => t.view.webContents === wc0).id)
       await wait(300)
       console.log('ST sr ads allow:', adsAllowed(lurl), '->', (srSend('127.0.0.1', { ads: 'allow' }), adsAllowed(lurl)))
+      console.log('ST data:')
+      try {
+        await wc0.executeJavaScript('document.cookie = "stest=1; path=/";')
+        await wc0.loadURL(lurl)
+        await wait(1200)
+        const dtId = newTab(internalPage('settings'), w0)
+        await wait(2000)
+        const dtTab = w0.tabs[w0.tabs.length - 1]
+        console.log('ST data list:', await dtTab.view.webContents.executeJavaScript(`JSON.stringify({ count: document.getElementById('datacount').textContent, rows: document.querySelectorAll('#datalist .datarow').length, hosts: [...document.querySelectorAll('#datalist .dh')].map(e=>e.textContent) })`))
+        await dtTab.view.webContents.executeJavaScript(`(function(){ const b = document.querySelector('#datalist .da'); if(b){ b.click(); return 1 } return 0 })()`)
+        await wait(1200)
+        console.log('ST data clear one:', await dtTab.view.webContents.executeJavaScript(`JSON.stringify({ rows: document.querySelectorAll('#datalist .datarow').length, res: document.getElementById('datares').textContent })`))
+        closeTab(w0, dtId)
+        await wait(400)
+      } catch (e) { console.log('ST data err:', String(e.message || e)) }
       srDel('127.0.0.1')
       await wc0.executeJavaScript(`window.open('https://example.com/?popup')`)
       await wait(900)
