@@ -166,7 +166,15 @@
         <span class="k">движок</span>
         <span class="st" id="eng">…</span>
       </div>
-      <div class="hint">встроенный desync-движок поднимается сам при старте. настройки не нужны — так задумано.</div>
+      <div class="kv">
+        <span class="k">стратегия</span>
+        <span class="v" id="engstrat">определяется…</span>
+      </div>
+      <div class="kv">
+        <span class="k"></span>
+        <button class="mini" id="engreprobe">проверить стратегии снова</button>
+      </div>
+      <div class="hint">встроенный desync-движок поднимается сам при старте. при старте и по кнопке он проверяет несколько стратегий соединения и оставляет рабочую.</div>
     </div>
 
     <div class="card">
@@ -254,6 +262,26 @@
       const e = $('eng')
       e.textContent = s.engine ? 'работает' : 'выключен'
       e.className = 'st ' + (s.engine ? 'ok' : 'bad')
+      const es = $('engstrat')
+      try {
+        const inf = await P.bypassInfo()
+        es.textContent = inf.name + (inf.working ? ' · работает' : ' · резерв')
+        es.className = 'v' + (inf.working ? ' ok' : ' bad')
+      } catch (_) { es.textContent = 'неизвестно' }
+      const er = $('engreprobe')
+      er.addEventListener('click', async () => {
+        er.disabled = true
+        er.textContent = 'проверяю…'
+        try {
+          const inf = await P.bypassReprobe()
+          es.textContent = inf.name + (inf.working ? ' · работает' : ' · резерв')
+          es.className = 'v' + (inf.working ? ' ok' : ' bad')
+          e.textContent = inf.port ? 'работает' : 'выключен'
+          e.className = 'st ' + (inf.port ? 'ok' : 'bad')
+        } catch (_) { es.textContent = 'ошибка проверки' }
+        er.disabled = false
+        er.textContent = 'проверить стратегии снова'
+      })
       $('about').innerHTML =
         'liber <b>' + s.version + '</b> — браузер с встроенным обходом блокировок.<br>' +
         'chromium <b>' + s.chrome + '</b> · electron <b>' + s.electron + '</b><br>' +

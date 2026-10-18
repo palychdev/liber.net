@@ -2051,6 +2051,11 @@ ipcMain.handle('site:clear-data', async (e) => {
   if (!host) return -1
   return clearSiteData((w && w.ses) || ses, host)
 })
+ipcMain.handle('bypass:info', () => bypass.info())
+ipcMain.handle('bypass:reprobe', async () => {
+  await bypass.reprobe()
+  return bypass.info()
+})
 ipcMain.handle('data:site-list', async (e) => {
   const w = wOfEvent(e)
   const s = (w && w.ses) || ses
@@ -2104,6 +2109,7 @@ ipcMain.handle('st:get', () => ({
   rules: adblock.rules,
   downloadsDir: dlDirOf(),
   engine: bypass.status(),
+  engineInfo: bypass.info(),
   version: app.getVersion(),
   electron: process.versions.electron,
   chrome: process.versions.chrome,

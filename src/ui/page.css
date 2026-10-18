@@ -113,6 +113,8 @@ h2 {
 .st { font-size: 11.5px; padding: 2px 8px; border-radius: 7px; background: rgba(255,255,255,0.06); color: #8b8d97; flex: 0 0 auto; }
 .st.ok { color: #3ddc97; background: rgba(61,220,151,0.10); }
 .st.bad { color: #ff5f56; background: rgba(255,95,86,0.10); }
+.v.ok { color: #3ddc97; }
+.v.bad { color: #ff5f56; }
 .dl-actions { display: flex; gap: 6px; flex: 0 0 auto; }
 .mini {
   padding: 4px 9px;

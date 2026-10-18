@@ -134,5 +134,7 @@ if (location.protocol === 'file:' || location.protocol === 'liber:') {
     engDel: id => ipcRenderer.invoke('eng:del', id),
     siteList: () => ipcRenderer.invoke('data:site-list'),
     siteClear: host => ipcRenderer.invoke('data:site-clear', host),
+    bypassInfo: () => ipcRenderer.invoke('bypass:info'),
+    bypassReprobe: () => ipcRenderer.invoke('bypass:reprobe'),
   })
 }
