@@ -2320,6 +2320,76 @@ if (!lock) {
     }
     setInterval(() => persist(), 20000)
     if (process.env.LIBER_SELFTEST) setTimeout(selftest, 2500)
+    if (process.env.LIBER_UIQA) setTimeout(async () => {
+      const devDir = path.join(__dirname, '..', '_dev')
+      try { fs.mkdirSync(devDir, { recursive: true }) } catch (_) {}
+      const name = process.env.LIBER_UIQA
+      const w = new BrowserWindow({
+        width: 1440,
+        height: 2200,
+        show: false,
+        backgroundColor: '#0e0e10',
+        webPreferences: {
+          session: ses,
+          contextIsolation: true,
+          sandbox: true,
+          nodeIntegration: false,
+          preload: path.join(__dirname, 'content-preload.js'),
+        },
+      })
+      await w.loadURL('liber://' + name + '/').catch(e => console.log('UIQA LOAD FAIL', e.message))
+      await new Promise(r => setTimeout(r, 3000))
+      if (name === 'settings') {
+        await w.webContents.executeJavaScript(`(() => {
+          const dl = document.getElementById('datalist')
+          if (!dl) return 0
+          const hosts = ['google.com','yandex.ru','bing.com','accounts.google.com','discord.com','www.bing.com','ru.wikipedia.org','en.wikipedia.org','github.com','youtube.com','mail.google.com','vk.com','stackoverflow.com','habr.com','music.yandex.ru','news.ycombinator.com','example.com']
+          dl.replaceChildren(...hosts.map((h, i) => {
+            const row = document.createElement('div')
+            row.className = 'item'
+            const tx = document.createElement('div')
+            tx.className = 'tx'
+            const a = document.createElement('div')
+            a.className = 'pt'
+            a.textContent = h
+            const b = document.createElement('div')
+            b.className = 'u'
+            b.textContent = (17 - i) + ' куки · ' + (17 - i) + ' сеанс · https'
+            tx.append(a, b)
+            const btn = document.createElement('button')
+            btn.className = 'mini'
+            btn.textContent = 'удалить'
+            row.append(tx, btn)
+            return row
+          }))
+          const c = document.getElementById('datacount')
+          if (c) c.textContent = '17'
+          return 1
+        })()`).catch(() => {})
+        await new Promise(r => setTimeout(r, 200))
+      }
+      const boxes = await w.webContents.executeJavaScript(`(() => {
+        const at = el => el ? Math.round(el.getBoundingClientRect().left) + '..' + Math.round(el.getBoundingClientRect().right) : '-'
+        const rows = [...document.querySelectorAll('.kv')].map(r => {
+          const h = Math.round(r.getBoundingClientRect().height)
+          return '  h' + h + '  k ' + at(r.querySelector('.k')) + '  c ' + at(r.querySelector('.v, select, input, label')) + '  a ' + at(r.querySelector('.acts, button'))
+        })
+        const items = [...document.querySelectorAll('.item')].slice(0, 3).map(r => {
+          const h = Math.round(r.getBoundingClientRect().height)
+          return '  item h' + h + '  tx ' + at(r.querySelector('.tx, .pt')) + '  act ' + at(r.querySelector('.mini, .del'))
+        })
+        return rows.concat(items).join('\\n')
+      })()`).catch(e => 'BOXERR ' + e.message)
+      console.log('UIQA ' + name + '\n' + boxes)
+      const parts = Number(process.env.LIBER_UIQA_PARTS || 6)
+      for (let i = 0; i < parts; i++) {
+        await w.webContents.executeJavaScript('window.scrollTo(0, Math.round(window.innerHeight * 0.86 * ' + i + ')); 1').catch(() => {})
+        await new Promise(r => setTimeout(r, 400))
+        try { fs.writeFileSync(path.join(devDir, 'uiqa-' + name + '-' + i + '.png'), (await w.webContents.capturePage()).toPNG()) } catch (e) { console.log('UIQA SHOT FAIL', i, e.message) }
+      }
+      console.log('UIQA DONE')
+      app.quit()
+    }, 1200)
     if (process.env.LIBER_SHOTS) setTimeout(async () => {
       const devDir = path.join(__dirname, '..', '_dev')
       try { fs.mkdirSync(devDir, { recursive: true }) } catch (_) {}
