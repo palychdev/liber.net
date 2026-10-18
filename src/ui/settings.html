@@ -70,12 +70,14 @@
 
     <div class="card">
       <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Конфиденциальность</h3>
-      <div class="kv">
-        <span class="k">данные</span>
-        <button class="mini" id="clHist">очистить историю</button>
-        <button class="mini" id="clCache">очистить кэш</button>
-        <button class="mini" id="clSite">очистить куки и данные сайтов</button>
-        <button class="mini danger" id="clAll">очистить всё</button>
+      <div class="kv actions">
+        <span class="k">очистить</span>
+        <div class="acts">
+          <button class="mini" id="clHist">история</button>
+          <button class="mini" id="clCache">кэш</button>
+          <button class="mini" id="clSite">куки и данные сайтов</button>
+          <button class="mini danger" id="clAll">всё</button>
+        </div>
       </div>
       <div class="hint" id="cleared"></div>
       <div class="kv mt">
@@ -103,13 +105,18 @@
     <div class="card">
       <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Данные сайтов</h3>
       <div class="about">куки и локальное хранилище сайтов, которые вы посещали. удаление данных сайта выходит из сессий на нём.</div>
-      <div class="kv wraprow">
-        <span class="k">сайтов с данными:</span>
+      <div class="kv">
+        <span class="k">сайтов с данными</span>
         <span class="v" id="datacount">…</span>
-        <button class="mini" id="dataclear">очистить данные всех сайтов</button>
-        <button class="mini danger" id="dataclearall">всё: кэш, куки, история</button>
       </div>
-      <div id="datalist"></div>
+      <div class="kv">
+        <span class="k">очистить</span>
+        <div class="acts">
+          <button class="mini" id="dataclear">данные сайтов</button>
+          <button class="mini danger" id="dataclearall">кэш, куки, история</button>
+        </div>
+      </div>
+      <div id="datalist" class="slist"></div>
       <div class="hint" id="datares"></div>
     </div>
 
@@ -125,8 +132,8 @@
       </div>
       <div class="kv">
         <span class="k">списки</span>
-        <button class="mini" id="abrefresh">обновить сейчас</button>
         <span class="v" id="abres"></span>
+        <button class="mini" id="abrefresh">обновить сейчас</button>
       </div>
       <div id="abtop"></div>
       <div class="hint">easylist · easyprivacy · ruadlist. списки скачиваются при первом запуске и обновляются сами раз в 5 дней. скрытие рекламных блоков на страницах включено вместе с фильтрами.</div>
@@ -181,8 +188,10 @@
       <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>Резервная копия</h3>
       <div class="kv tight">
         <span class="k"></span>
-        <button class="mini" id="bkexport">экспорт настроек</button>
-        <button class="mini" id="bkimport">импорт настроек</button>
+        <div class="acts">
+          <button class="mini" id="bkexport">экспорт настроек</button>
+          <button class="mini" id="bkimport">импорт настроек</button>
+        </div>
       </div>
       <div class="hint" id="bkres"></div>
       <div class="hint">сохраняет настройки, правила сайтов, поисковики и приватность в один JSON-файл. закладки и историю экспортируйте отдельно — в карточках выше.</div>
@@ -224,7 +233,8 @@
       const v = document.createElement('span')
       v.className = 'v'
       v.textContent = (e.keyword ? e.keyword + ' → ' : '') + e.url
-      d.append(k, v)
+      const acts = document.createElement('div')
+      acts.className = 'acts'
       if (!e.builtin) {
         const edit = document.createElement('button')
         edit.className = 'mini'
@@ -247,8 +257,9 @@
           $('engres').textContent = 'поисковик удалён'
           await load()
         })
-        d.append(edit, del)
+        acts.append(edit, del)
       }
+      d.append(k, v, acts)
       return d
     }
 
@@ -263,6 +274,7 @@
       $('search').value = s.search
       $('home').value = s.homepage
       $('dldir').textContent = s.downloadsDir
+      $('dldir').title = s.downloadsDir
       $('bmbar').checked = s.bmBar !== false
       $('restore').checked = s.restore !== false
       const p = s.privacy || {}
@@ -355,26 +367,29 @@
       const dl = document.getElementById("datalist")
       dl.replaceChildren(...list.map(d => {
         const row = document.createElement("div")
-        row.className = "datarow"
+        row.className = "item"
+        const tx = document.createElement("div")
+        tx.className = "tx"
         const h = document.createElement("div")
-        h.className = "dh"
+        h.className = "pt"
         h.textContent = d.host
         const n = document.createElement("div")
-        n.className = "dn"
+        n.className = "u"
         n.textContent = d.cookies + " куки" + (d.session ? " · " + d.session + " сеанс" : "") + (d.secure ? " · https" : "")
+        tx.append(h, n)
         const b = document.createElement("button")
-        b.className = "da"
-        b.textContent = "удалить данные"
+        b.className = "mini"
+        b.textContent = "удалить"
         b.addEventListener("click", async () => {
           b.disabled = true
           b.textContent = "удаление…"
           const nn = await P.siteClear(d.host)
           b.disabled = false
-          b.textContent = "удалить данные"
+          b.textContent = "удалить"
           document.getElementById("datares").textContent = d.host + ": " + (nn > 0 ? nn + " куки" : "данные") + " удалены"
           await loadData()
         })
-        row.append(h, n, b)
+        row.append(tx, b)
         return row
       }))
     }
@@ -431,6 +446,7 @@
       const v = document.createElement('span')
       v.className = 'v'
       v.textContent = srSummary(rule)
+      v.title = srSummary(rule)
       const edit = document.createElement('button')
       edit.className = 'mini'
       edit.textContent = 'изменить'
@@ -442,7 +458,10 @@
         srExtra = srExtra.filter(h => h !== host)
         loadSr()
       })
-      head.append(k, v, edit, del)
+      const acts = document.createElement('div')
+      acts.className = 'acts'
+      acts.append(edit, del)
+      head.append(k, v, acts)
       const body = document.createElement('div')
       body.className = 'srbody'
       body.hidden = !open
