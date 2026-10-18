@@ -329,7 +329,7 @@ body.vtab #tabs .gcnt { margin-left: auto; }
 .spb.on.def { background: rgba(255, 255, 255, 0.14); color: var(--txt); }
 .spb.on.yes { background: rgba(61, 220, 151, 0.18); color: var(--ok); border-color: rgba(61, 220, 151, 0.4); }
 .spb.on.no { background: rgba(255, 95, 86, 0.16); color: var(--bad); border-color: rgba(255, 95, 86, 0.4); }
-.tab.drag { opacity: 0.5; pointer-events: none; }
+.tab.drag-start { opacity: 0.5; pointer-events: none; }
 .spact { display: flex; gap: 6px; margin-top: 8px; }
 .spa {
   flex: 1;

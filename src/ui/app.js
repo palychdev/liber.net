@@ -612,14 +612,14 @@ tabsEl.addEventListener('mousedown', e => {
   if (!tab) return
   if (e.button === 1) { e.preventDefault(); window.liber.closeTab(tab.dataset.id); return }
   if (e.button !== 0 || e.target.closest('.x')) return
-  e.preventDefault()
-  dragTab = { el: tab }
-  tab.classList.add('drag')
+  dragTab = { el: tab, x: e.clientX, y: e.clientY }
+  tab.classList.add('drag-start')
   window.addEventListener('mousemove', onTabMove)
   window.addEventListener('mouseup', onTabUp)
 })
 function onTabMove(e) {
   if (!dragTab) return
+  if (Math.abs(e.clientX - dragTab.x) < 4 && Math.abs(e.clientY - dragTab.y) < 4) return
   const cur = document.elementFromPoint(e.clientX, e.clientY)?.closest('.tab')
   if (cur && cur !== dragTab.el && cur.parentElement === tabsEl) {
     const rect = cur.getBoundingClientRect()
@@ -632,7 +632,7 @@ function onTabUp() {
   window.removeEventListener('mousemove', onTabMove)
   window.removeEventListener('mouseup', onTabUp)
   if (!dragTab) return
-  dragTab.el.classList.remove('drag')
+  dragTab.el.classList.remove('drag-start')
   const ids = [...tabsEl.children].map(c => c.dataset.id).filter(Boolean)
   if (ids.length) window.liber.tabOrder(ids)
   dragTab = null
