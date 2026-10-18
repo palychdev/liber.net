@@ -33,7 +33,20 @@ const ICONS = {
   cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
   dash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>',
   globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 4 9 15 15 0 0 1-4 9 15 15 0 0 1-4-9 15 15 0 0 1 4-9z"/></svg>',
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  ribbon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'
+}
+
+const PAGE_ICONS = { start: 'home', hist: 'clock', bms: 'ribbon', dls: 'down', settings: 'gear', reader: 'book', err: 'warn' }
+
+function pageIconName(url) {
+  const m = /^(?:liber:\/\/([a-z0-9-]+)|file:.*\/ui\/([a-z0-9-]+)\.html$)/i.exec(url || '')
+  return m ? PAGE_ICONS[m[1] || m[2]] || '' : ''
 }
 
 function svgEl(name) {
@@ -94,6 +107,10 @@ function tabEl(t) {
   } else if (t.pinned) {
     const p = svgEl('pin')
     p.className = 'svgi pinm'
+    d.append(p)
+  } else if (pageIconName(t.url)) {
+    const p = svgEl(pageIconName(t.url))
+    p.className = 'svgi gfav'
     d.append(p)
   } else {
     const g = svgEl('globe')
@@ -355,6 +372,10 @@ function renderSug(items) {
       const b = svgEl('starOn')
       b.className = 'svgi b'
       d.append(b)
+    } else {
+      const h = svgEl('clock')
+      h.className = 'svgi ic'
+      d.append(h)
     }
     const t = document.createElement('span')
     t.className = 't'
@@ -419,8 +440,8 @@ function exitFind() {
   findMode = false
   cntEl.textContent = ''
   omni.placeholder = 'адрес или поиск'
-  starEl.style.display = ''
   const a = activeTab()
+  starEl.style.display = a && /^https?:/i.test(a.url) ? '' : 'none'
   omni.value = ''
   lastVal = ''
   if (a) window.liber.findStop(a.id)
@@ -532,7 +553,7 @@ async function openSitePanel() {
 function renderSitePanel() {
   const info = spInfo
   if (!info) return
-  const r = lockEl.getBoundingClientRect()
+  const r = (document.getElementById('omniwrap') || lockEl).getBoundingClientRect()
   spEl.style.left = Math.max(8, Math.min(r.left - 10, innerWidth - 340)) + 'px'
   spEl.style.top = Math.round(r.bottom + 8) + 'px'
   const head = document.createElement('div')
@@ -635,11 +656,19 @@ function render(s) {
   starEl.title = s.isBm ? 'Убрать из закладок (Ctrl+D)' : 'В закладки (Ctrl+D)'
   const a = activeTab(s) ? activeTab(s) : null
   renderLock(a)
+  starEl.style.display = a && /^https?:/i.test(a.url) ? '' : 'none'
   if (spInfo && spInfo.url !== ((a && a.url) || '')) hideSitePanel()
   if (a && document.activeElement !== omni && !comp) {
-    omni.value = a.url && !/^file:/i.test(a.url) ? a.url : ''
+    omni.value = omniValue(a.url)
     lastVal = omni.value
   }
+}
+
+function omniValue(u) {
+  if (!u || /^file:/i.test(u)) return ''
+  const m = /^liber:\/\/([a-z0-9-]+)/i.exec(u)
+  if (m) return m[1] === 'start' ? '' : 'liber://' + m[1] + '/'
+  return u
 }
 
 document.addEventListener('click', e => {

@@ -286,6 +286,7 @@ button:focus-visible { outline: 1px solid var(--line2); outline-offset: 1px; }
   padding: 0 12px;
   background: var(--surface2);
   border-bottom: 1px solid var(--line);
+  z-index: 20;
 }
 
 #omniwrap {
@@ -399,7 +400,7 @@ button:focus-visible { outline: 1px solid var(--line2); outline-offset: 1px; }
 }
 .spb svg { width: 12px; height: 12px; }
 .spb:hover { background: var(--pill-hover); color: var(--txt); }
-.spb.on.def { background: rgba(255, 255, 255, 0.14); color: var(--txt); }
+.spb.on.def { background: rgba(255, 255, 255, 0.14); color: var(--txt); border-color: rgba(255, 255, 255, 0.16); }
 .spb.on.yes { background: rgba(78, 192, 142, 0.16); color: var(--ok); border-color: rgba(78, 192, 142, 0.35); }
 .spb.on.no { background: rgba(226, 92, 92, 0.15); color: var(--bad); border-color: rgba(226, 92, 92, 0.35); }
 .spact { display: flex; gap: 7px; margin-top: 11px; }
@@ -469,6 +470,7 @@ body.hasbm #sug { top: 122px; }
 .sugit .b { color: var(--accent); }
 .sugit .b svg { width: 12px; height: 12px; }
 .sugit .sr svg { width: 13px; height: 13px; color: var(--dim2); }
+.sugit .ic svg { width: 13px; height: 13px; color: var(--dim2); }
 .sugit.search { color: var(--dim); }
 .sugit.search .t { color: var(--dim); }
 
