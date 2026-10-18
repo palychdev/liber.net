@@ -44,6 +44,17 @@
       border-color: #8a7bff;
       box-shadow: 0 0 0 4px rgba(138, 123, 255, 0.14);
     }
+    .freq { margin-top: 34px; text-align: left; }
+    .freq h3 { font-size: 12.5px; color: #8b8d97; margin-bottom: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .ftiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .ftile { border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px 10px; background: rgba(255,255,255,0.03); cursor: pointer; text-align: center; transition: background 0.15s, border-color 0.15s; }
+    .ftile:hover { background: rgba(255,255,255,0.08); border-color: rgba(138,123,255,0.35); }
+    .fdot { width: 36px; height: 36px; border-radius: 50%; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: #fff; }
+    .fhost { font-size: 13px; color: #e7e7ea; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+    .fcount { font-size: 11px; color: #8b8d97; }
+    .fdel { float: right; opacity: 0; font-size: 13px; line-height: 1; }
+    .ftile:hover .fdel { opacity: 0.7; }
+    .fdel:hover { color: #ff5f56; }
     .links { margin-top: 30px; display: flex; gap: 22px; justify-content: center; }
     .links a {
       color: #8b8d97;
@@ -83,6 +94,50 @@
     for (const a of document.querySelectorAll('.links a')) {
       a.addEventListener('click', () => { if (P) P.page(a.dataset.p) })
     }
+    ;(async () => {
+      let list = []
+      try { list = await P.freqList() } catch (_) {}
+      const wrap = document.createElement('div')
+      wrap.className = 'freq'
+      const h = document.createElement('h3')
+      h.textContent = 'часто посещаемые'
+      wrap.append(h)
+      const grid = document.createElement('div')
+      grid.className = 'ftiles'
+      for (const d of list) {
+        const t = document.createElement('div')
+        t.className = 'ftile'
+        const dot = document.createElement('div')
+        dot.className = 'fdot'
+        let hh = 0
+        for (const c of d.host) hh = ((hh << 5) - hh + c.charCodeAt(0)) | 0
+        dot.style.background = 'hsl(' + (Math.abs(hh) % 360) + ', 60%, 55%)'
+        dot.textContent = d.host.charAt(0).toUpperCase()
+        const name = document.createElement('div')
+        name.className = 'fhost'
+        name.textContent = d.host
+        const cnt = document.createElement('div')
+        cnt.className = 'fcount'
+        cnt.textContent = d.count + ' посещений'
+        const del = document.createElement('button')
+        del.className = 'fdel'
+        del.textContent = '✕'
+        del.title = 'скрыть'
+        del.addEventListener('click', ev => {
+          ev.stopPropagation()
+          P.freqHide(d.host)
+          list = list.filter(x => x.host !== d.host)
+          t.remove()
+          if (!list.length) wrap.remove()
+        })
+        t.addEventListener('click', () => { const u = d.url; if (P) { P.nav(u) } else { location.href = u } })
+        t.append(dot, name, cnt, del)
+        grid.append(t)
+      }
+      wrap.append(grid)
+      const links = document.querySelector('.links')
+      if (links) links.parentNode.insertBefore(wrap, links)
+    })()
   </script>
 </body>
 </html>

@@ -96,6 +96,8 @@ if (location.protocol === 'file:' || location.protocol === 'liber:') {
     hist: () => ipcRenderer.invoke('h:list', 500),
     histRemove: url => ipcRenderer.invoke('h:remove', url),
     histClear: () => ipcRenderer.invoke('h:clear'),
+    freqList: () => ipcRenderer.invoke('freq:list'),
+    freqHide: host => ipcRenderer.invoke('freq:hide', host),
     bms: () => ipcRenderer.invoke('b:list'),
     bmRemove: url => ipcRenderer.invoke('b:remove', url),
     bfAdd: name => ipcRenderer.invoke('bf:add', name),

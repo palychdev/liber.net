@@ -1863,6 +1863,28 @@ ipcMain.handle('h:clear', () => {
   data.history = []
   storage.save(data)
 })
+ipcMain.handle('freq:list', () => {
+  const hide = new Set((settings.freqHide || []).map(String).map(h => h.toLowerCase()))
+  const map = new Map()
+  for (const h of data.history) {
+    const host = siteHostOf(h.url)
+    if (!host || hide.has(host.toLowerCase())) continue
+    const d = map.get(host) || { host, count: 0, url: h.url, title: h.title, date: h.date }
+    d.count += 1
+    if (h.date > d.date) { d.url = h.url; d.title = h.title; d.date = h.date }
+    map.set(host, d)
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 8)
+})
+ipcMain.handle('freq:hide', (e, host) => {
+  if (!host) return
+  const h = String(host).toLowerCase()
+  if (!settings.freqHide) settings.freqHide = []
+  if (!settings.freqHide.includes(h)) settings.freqHide.push(h)
+  data.settings = settings
+  storage.save(data)
+  sendSettings()
+})
 ipcMain.handle('suggest', (e, q) => {
   const s = (q || '').trim().toLowerCase()
   if (s.length === 0) return data.history.slice(0, 6).map(it => ({ url: it.url, title: it.title }))
@@ -2242,6 +2264,13 @@ if (!lock) {
       await w0.win.webContents.executeJavaScript(`(function(ids){ window.liber.tabOrder(ids) })(${JSON.stringify(order0)})`)
       await wait(300)
       console.log('ST tabs restored:', JSON.stringify(w0.tabs.map(t => t.id)) === JSON.stringify(order0))
+      console.log('ST home:')
+      const hmId = newTab(internalPage('start'), w0)
+      await wait(1500)
+      const hmTab = w0.tabs[w0.tabs.length - 1]
+      console.log('ST home tiles:', await hmTab.view.webContents.executeJavaScript(`JSON.stringify({ n: document.querySelectorAll('.ftile').length, first: (document.querySelector('.fhost') || {}).textContent || '' })`))
+      closeTab(w0, hmId)
+      await wait(300)
       console.log('ST popup window.open:')
       n = w0.tabs.length
       await wc0.executeJavaScript(`window.open('https://example.com/?popup', '_blank'); 1`)
