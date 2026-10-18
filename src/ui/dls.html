@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Загрузки — Liber</title>
+  <title>Загрузки — liber.net</title>
   <link rel="stylesheet" href="page.css">
 </head>
 <body>
@@ -72,10 +72,12 @@
         w.textContent = when(d.date)
         const acts = document.createElement('div')
         acts.className = 'dl-actions'
-        const mk = (label, fn, cls) => {
+        const mk = (label, fn, cls, html) => {
           const b = document.createElement('button')
           b.className = 'mini' + (cls ? ' ' + cls : '')
-          b.textContent = label
+          if (html) b.innerHTML = html
+          else b.textContent = label
+          b.title = label
           b.addEventListener('click', fn)
           return b
         }
@@ -86,7 +88,7 @@
           acts.append(mk('открыть', () => P.dlOpen(d.id)))
           acts.append(mk('папка', () => P.dlReveal(d.id)))
         }
-        acts.append(mk('✕', async () => { await P.dlRemove(d.id); load() }, 'danger'))
+        acts.append(mk('удалить', async () => { await P.dlRemove(d.id); load() }, 'danger', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'))
         row.append(tx, st, w, acts)
         return row
       }))

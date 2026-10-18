@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>История — Liber</title>
+  <title>История — liber.net</title>
   <link rel="stylesheet" href="page.css">
 </head>
 <body>
@@ -53,7 +53,8 @@
         w.textContent = when(it.date)
         const del = document.createElement('button')
         del.className = 'del'
-        del.textContent = '✕'
+        del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+        del.title = 'удалить'
         del.addEventListener('click', async () => {
           await P.histRemove(it.url)
           all = await P.hist()

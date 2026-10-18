@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Настройки — Liber</title>
+  <title>Настройки — liber.net</title>
   <link rel="stylesheet" href="page.css">
 </head>
 <body>
@@ -11,14 +11,14 @@
     <div class="sub">всё сохраняется само</div>
 
     <div class="card">
-      <h3>Основное</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Основное</h3>
       <div class="kv">
         <span class="k">поисковик</span>
         <select id="search"></select>
       </div>
       <div class="kv">
         <span class="k">домашняя страница</span>
-        <input id="home" type="text" placeholder="пусто — стартовая liber" spellcheck="false">
+        <input id="home" type="text" placeholder="пусто — стартовая liber.net" spellcheck="false">
       </div>
       <div class="kv">
         <span class="k">папка загрузок</span>
@@ -37,7 +37,7 @@
     </div>
 
     <div class="card">
-      <h3>Поисковики</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Поисковики</h3>
       <div class="about">свой поисковик задаётся адресом, где <b>%s</b> — место запроса. ярлык работает в омнибоксе: наберите <b>d котики</b> и поиск уйдёт в поисковик с ярлыком d, не меняя основной.</div>
       <div id="englist"></div>
       <div class="kv">
@@ -60,16 +60,16 @@
     </div>
 
     <div class="card">
-      <h3>Браузер по умолчанию</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>Браузер по умолчанию</h3>
       <div class="kv">
         <span class="k"></span>
         <button class="btn" id="def">сделать браузером по умолчанию</button>
       </div>
-      <div class="hint">windows попросит подтвердить выбор в списке приложений — liber там появится.</div>
+      <div class="hint">windows попросит подтвердить выбор в списке приложений — liber.net там появится.</div>
     </div>
 
     <div class="card">
-      <h3>Конфиденциальность</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Конфиденциальность</h3>
       <div class="kv">
         <span class="k">данные</span>
         <button class="mini" id="clHist">очистить историю</button>
@@ -78,7 +78,7 @@
         <button class="mini danger" id="clAll">очистить всё</button>
       </div>
       <div class="hint" id="cleared"></div>
-      <div class="kv" style="margin-top:10px">
+      <div class="kv mt">
         <span class="k">трекинг</span>
         <label><input id="privDnt" type="checkbox"> отправлять do-not-track</label>
       </div>
@@ -101,9 +101,9 @@
     </div>
 
     <div class="card">
-      <h3>Данные сайтов</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Данные сайтов</h3>
       <div class="about">куки и локальное хранилище сайтов, которые вы посещали. удаление данных сайта выходит из сессий на нём.</div>
-      <div class="kv" style="flex-wrap: wrap; gap: 8px">
+      <div class="kv wraprow">
         <span class="k">сайтов с данными:</span>
         <span class="v" id="datacount">…</span>
         <button class="mini" id="dataclear">очистить данные всех сайтов</button>
@@ -114,7 +114,7 @@
     </div>
 
     <div class="card">
-      <h3>Блокировка рекламы</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg>Блокировка рекламы</h3>
       <div class="kv">
         <span class="k">фильтры</span>
         <label><input id="adblock" type="checkbox"> блокировать рекламу и трекеры</label>
@@ -133,7 +133,7 @@
     </div>
 
     <div class="card">
-      <h3>Разрешения сайтов</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Разрешения сайтов</h3>
       <div class="about">камера, микрофон, геолокация, уведомления и буфер обмена спрашиваются при первом запросе — выбор запоминается здесь. остальным можно управлять вручную: выключить javascript или куки, запретить картинки и всплывающие окна.</div>
       <div id="srlist"></div>
       <div class="kv">
@@ -145,13 +145,13 @@
     </div>
 
     <div class="card">
-      <h3>Импорт из другого браузера</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Импорт из другого браузера</h3>
       <div class="about" id="imp">ищу установленные браузеры…</div>
       <div class="hint" id="impres"></div>
     </div>
 
     <div class="card">
-      <h3>Пароли</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>Пароли</h3>
       <div class="kv">
         <span class="k">сохранено</span>
         <span class="v" id="pwcount">…</span>
@@ -161,7 +161,7 @@
     </div>
 
     <div class="card">
-      <h3>Обход блокировок</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Обход блокировок</h3>
       <div class="kv">
         <span class="k">движок</span>
         <span class="st" id="eng">…</span>
@@ -178,8 +178,8 @@
     </div>
 
     <div class="card">
-      <h3>Резервная копия</h3>
-      <div class="kv" style="gap: 8px">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>Резервная копия</h3>
+      <div class="kv tight">
         <span class="k"></span>
         <button class="mini" id="bkexport">экспорт настроек</button>
         <button class="mini" id="bkimport">импорт настроек</button>
@@ -189,7 +189,7 @@
     </div>
 
     <div class="card">
-      <h3>О браузере</h3>
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>О браузере</h3>
       <div class="about" id="about"></div>
     </div>
   </div>
@@ -315,7 +315,7 @@
         await load()
       })
       $('about').innerHTML =
-        'liber <b>' + s.version + '</b> — браузер с встроенным обходом блокировок.<br>' +
+        'liber.net <b>' + s.version + '</b> — браузер с встроенным обходом блокировок.<br>' +
         'chromium <b>' + s.chrome + '</b> · electron <b>' + s.electron + '</b><br>' +
         '<a href="https://github.com/palychdev/liber.net" id="gh">github.com/palychdev/liber.net</a>'
       $('gh').addEventListener('click', ev => { ev.preventDefault(); P.newTab('https://github.com/palychdev/liber.net') })
@@ -529,7 +529,8 @@
         tx.append(h, u)
         const del = document.createElement('button')
         del.className = 'del'
-        del.textContent = '✕'
+        del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+        del.title = 'удалить'
         del.addEventListener('click', async () => { await P.pwDel(c.host, c.user); loadPw() })
         d.append(tx, del)
         return d

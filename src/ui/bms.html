@@ -2,13 +2,13 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Закладки — Liber</title>
+  <title>Закладки — liber.net</title>
   <link rel="stylesheet" href="page.css">
 </head>
 <body>
   <div class="wrap">
     <h2>Закладки</h2>
-    <div class="sub">☆ в адресной строке и Ctrl+D добавляют сюда</div>
+    <div class="sub">закладки добавляются сюда через Ctrl+D</div>
     <div class="row">
       <input id="fname" class="searchbox" placeholder="название новой папки и enter" spellcheck="false">
     </div>
@@ -49,7 +49,7 @@
       if (del) {
         const x = document.createElement('span')
         x.className = 'x'
-        x.textContent = '✕'
+        x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
         x.title = 'удалить папку'
         x.addEventListener('click', async ev => {
           ev.stopPropagation()
@@ -90,7 +90,8 @@
       tx.append(a, u)
       const del = document.createElement('button')
       del.className = 'del'
-      del.textContent = '✕'
+      del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+      del.title = 'удалить'
       del.addEventListener('click', async () => { apply(await P.bmRemove(it.url)); render() })
       d.append(tx, moveSel(it), del)
       return d
@@ -105,7 +106,7 @@
 
       const list = sel === '' ? items : sel === '~' ? root : items.filter(i => i.folder === sel)
       if (!list.length) {
-        listEl.innerHTML = '<div class="empty">пусто. жми ☆ на любой странице</div>'
+        listEl.innerHTML = '<div class="empty">пусто. добавь закладку через Ctrl+D</div>'
         return
       }
       listEl.replaceChildren(...list.map(row))

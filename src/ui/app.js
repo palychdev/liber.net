@@ -9,6 +9,7 @@ const starEl = document.getElementById('star')
 const cntEl = document.getElementById('cnt')
 const engineEl = document.getElementById('engine')
 const dlsEl = document.getElementById('dls')
+const dlstxtEl = document.getElementById('dlstxt')
 const lockEl = document.getElementById('lock')
 const spEl = document.getElementById('sitepanel')
 const moreEl = document.getElementById('more')
@@ -17,6 +18,32 @@ const tmenuEl = document.getElementById('tmenu')
 const tsearchEl = document.getElementById('tsearch')
 const tsqEl = document.getElementById('tsq')
 const tslistEl = document.getElementById('tslist')
+
+const ICONS = {
+  mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 19"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>',
+  aud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 19"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.6 5.4a10 10 0 0 1 0 13.2"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4.76a2 2 0 0 0 .59 1.42L17 13.6V15H7v-1.4l1.41-1.42A2 2 0 0 0 9 10.76z"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+  starOn: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  dash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 4 9 15 15 0 0 1-4 9 15 15 0 0 1-4-9 15 15 0 0 1 4-9z"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'
+}
+
+function svgEl(name) {
+  const s = document.createElement('span')
+  s.className = 'svgi'
+  s.innerHTML = ICONS[name] || ''
+  return s
+}
+
+starEl.innerHTML = ICONS.star
 
 const isPriv = location.search.includes('priv=1')
 if (isPriv) {
@@ -57,34 +84,34 @@ function tabEl(t) {
   d.className = 'tab' + (t.active ? ' on' : '') + (t.loading ? ' ld' : '') + (t.muted ? ' mut' : '') + (t.pinned ? ' pinned' : '')
   d.title = t.title || ''
   if (t.muted) {
-    const m = document.createElement('span')
-    m.className = 'mt'
-    m.textContent = '🔇'
+    const m = svgEl('mute')
+    m.className = 'svgi mt'
     d.append(m)
   } else if (t.favicon) {
     const f = document.createElement('img')
     f.src = t.favicon
     d.append(f)
   } else if (t.pinned) {
-    const p = document.createElement('span')
-    p.className = 'pinm'
-    p.textContent = '📌'
+    const p = svgEl('pin')
+    p.className = 'svgi pinm'
     d.append(p)
+  } else {
+    const g = svgEl('globe')
+    g.className = 'svgi gfav'
+    d.append(g)
   }
   if (!t.pinned) {
     const title = document.createElement('span')
     title.className = 'title'
     title.textContent = t.loading ? '…' : (t.title || 'Новая вкладка')
-    const x = document.createElement('span')
-    x.className = 'x'
-    x.textContent = '✕'
+    const x = svgEl('close')
+    x.className = 'svgi x'
     x.addEventListener('click', e => { e.stopPropagation(); window.liber.closeTab(t.id) })
     d.append(title, x)
   }
   if (t.audible) {
-    const a = document.createElement('span')
-    a.className = 'aud'
-    a.textContent = '🔊'
+    const a = svgEl('aud')
+    a.className = 'svgi aud'
     d.append(a)
   }
   d.addEventListener('click', () => window.liber.switchTab(t.id))
@@ -117,7 +144,7 @@ function popMenu(el, x, y, rows) {
   el.classList.add('show')
   const r = el.getBoundingClientRect()
   el.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px'
-  el.style.top = Math.max(52, Math.min(y, innerHeight - r.height - 8)) + 'px'
+  el.style.top = Math.max(48, Math.min(y, innerHeight - r.height - 8)) + 'px'
 }
 
 function closeMenus() {
@@ -311,7 +338,12 @@ function renderSug(items) {
   if (!findMode && q && !looksUrl(q)) {
     const s = document.createElement('div')
     s.className = 'sugit search'
-    s.textContent = 'искать «' + q + '»'
+    const si = svgEl('search')
+    si.className = 'svgi sr'
+    const st = document.createElement('span')
+    st.className = 't'
+    st.textContent = 'искать «' + q + '»'
+    s.append(si, st)
     s.addEventListener('click', () => { const a = activeTab(); hideSug(); if (a) window.liber.go(a.id, q) })
     rows.push(s)
     sugItems.push({ q })
@@ -320,9 +352,8 @@ function renderSug(items) {
     const d = document.createElement('div')
     d.className = 'sugit'
     if (it.bm) {
-      const b = document.createElement('span')
-      b.className = 'b'
-      b.textContent = '★'
+      const b = svgEl('starOn')
+      b.className = 'svgi b'
       d.append(b)
     }
     const t = document.createElement('span')
@@ -427,7 +458,11 @@ function renderBm(payload) {
     if (!list.length) continue
     const d = document.createElement('button')
     d.className = 'bmi fold'
-    d.textContent = '📁 ' + f
+    const fi = svgEl('folder')
+    fi.className = 'svgi fi'
+    const ft = document.createElement('span')
+    ft.textContent = f
+    d.append(fi, ft)
     d.addEventListener('click', e => {
       e.stopPropagation()
       showFolder(e.clientX, e.clientY, list)
@@ -454,17 +489,17 @@ function renderLock(a) {
   if (/^https:/i.test(u)) {
     let host = ''
     try { host = new URL(u).host } catch (_) {}
-    lockEl.textContent = '🔒'
+    lockEl.innerHTML = ICONS.lock
     lockEl.title = 'соединение защищено • ' + host
     lockEl.className = 'lock ok'
   } else if (/^http:/i.test(u)) {
     let host = ''
     try { host = new URL(u).host } catch (_) {}
-    lockEl.textContent = '⚠'
+    lockEl.innerHTML = ICONS.warn
     lockEl.title = 'соединение не защищено • ' + host
     lockEl.className = 'lock warn'
   } else {
-    lockEl.textContent = ''
+    lockEl.replaceChildren()
     lockEl.title = ''
     lockEl.className = 'lock'
   }
@@ -505,7 +540,7 @@ function renderSitePanel() {
   if (info.local) {
     const h = document.createElement('div')
     h.className = 'sphost'
-    h.textContent = 'страница Liber'
+    h.textContent = 'страница liber.net'
     const sub = document.createElement('div')
     sub.className = 'spsub'
     sub.textContent = 'внутренняя страница, сайта нет'
@@ -516,7 +551,11 @@ function renderSitePanel() {
   }
   const h = document.createElement('div')
   h.className = 'sphost'
-  h.textContent = (info.secure ? '🔒 ' : '⚠ ') + info.host
+  const hi = svgEl(info.secure ? 'lock' : 'warn')
+  hi.className = 'svgi ' + (info.secure ? 'ok' : 'warn')
+  const ht = document.createElement('span')
+  ht.textContent = info.host
+  h.append(hi, ht)
   const sub = document.createElement('div')
   sub.className = 'spsub' + (info.secure ? '' : ' warn')
   sub.textContent = info.secure ? 'соединение защищено' : 'соединение не защищено'
@@ -536,10 +575,10 @@ function renderSitePanel() {
     n.className = 'spn'
     n.textContent = label
     row.append(n)
-    for (const p of [['', '—', 'по умолчанию'], ['allow', '✓', 'разрешить'], ['deny', '✕', 'запретить']]) {
+    for (const p of [['', 'dash', 'по умолчанию'], ['allow', 'check', 'разрешить'], ['deny', 'cross', 'запретить']]) {
       const b = document.createElement('button')
       b.className = 'spb ' + (p[0] === 'allow' ? 'yes' : p[0] === 'deny' ? 'no' : 'def') + (v === p[0] ? ' on' : '')
-      b.textContent = p[1]
+      b.innerHTML = ICONS[p[1]]
       b.title = p[2]
       b.addEventListener('click', async () => {
         await window.liber.srSet(info.ruleHost || info.base, { [k]: p[0] })
@@ -586,10 +625,12 @@ function render(s) {
   renderTabs(s)
   document.body.classList.toggle('vtab', !!s.vtab)
   engineEl.classList.toggle('off', !s.engine)
-  dlsEl.textContent = s.dls > 0 ? '↓ ' + (s.dlsName || s.dls) + (s.dlsPct ? ' ' + s.dlsPct + '%' : '') : ''
+  engineEl.title = s.engine ? 'обход блокировок: работает' : 'обход блокировок: выключен'
+  dlstxtEl.textContent = s.dls > 0 ? (s.dlsName || s.dls) + (s.dlsPct ? ' ' + s.dlsPct + '%' : '') : ''
   dlsEl.classList.toggle('busy', s.dls > 0)
   starEl.classList.toggle('on', !!s.isBm)
-  starEl.textContent = s.isBm ? '★' : '☆'
+  starEl.innerHTML = s.isBm ? ICONS.starOn : ICONS.star
+  starEl.title = s.isBm ? 'Убрать из закладок (Ctrl+D)' : 'В закладки (Ctrl+D)'
   const a = activeTab(s) ? activeTab(s) : null
   renderLock(a)
   if (spInfo && spInfo.url !== ((a && a.url) || '')) hideSitePanel()
@@ -632,7 +673,11 @@ reldEl.addEventListener('click', () => { const a = activeTab(); if (a) window.li
 backEl.addEventListener('click', () => { const a = activeTab(); if (a) window.liber.back(a.id) })
 dlsEl.addEventListener('click', () => window.liber.page('dls'))
 engineEl.addEventListener('click', () => window.liber.page('settings'))
-moreEl.addEventListener('click', e => { e.stopPropagation(); showMainMenu(e.clientX, e.clientY) })
+moreEl.addEventListener('click', e => {
+  e.stopPropagation()
+  const r = moreEl.getBoundingClientRect()
+  showMainMenu(e.clientX || r.right, e.clientY || r.bottom + 6)
+})
 
 starEl.addEventListener('click', () => {
   const a = activeTab()

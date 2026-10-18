@@ -2,85 +2,141 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Новая вкладка — Liber</title>
+  <title>Новая вкладка — liber.net</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { min-height: 100%; }
     body {
       display: grid;
       place-items: center;
-      background: #0b0c10;
-      color: #e7e7ea;
-      font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+      background: #0d0e12;
+      color: #e8e9ee;
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
     }
-    .bg {
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(700px 380px at 50% 8%, rgba(138, 123, 255, 0.13), transparent 70%),
-        #0b0c10;
-      z-index: -1;
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+    .wrap { width: min(680px, 92vw); padding: 0 0 56px; }
+    .mark {
+      font-size: 40px;
+      font-weight: 600;
+      letter-spacing: -0.4px;
+      text-align: center;
     }
-    .wrap { text-align: center; padding: 0 24px 60px; }
-    .mark { font-size: 72px; font-weight: 650; letter-spacing: 0.5px; }
-    .mark i { color: #8a7bff; font-style: normal; }
-    .tag { margin-top: 10px; color: #8b8d97; font-size: 14.5px; }
-    form { margin-top: 34px; }
+    .mark i { font-style: normal; color: #666974; }
+    .tag { margin-top: 10px; text-align: center; color: #8f929e; font-size: 13px; }
+    form { margin-top: 28px; }
+    .sbox {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .sbox svg {
+      position: absolute;
+      left: 16px;
+      width: 15px; height: 15px;
+      color: #666974;
+      pointer-events: none;
+    }
     input {
-      width: min(560px, 86vw);
-      height: 48px;
-      padding: 0 20px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.09);
-      background: rgba(255,255,255,0.05);
-      color: #e7e7ea;
-      font-size: 15px;
+      width: 100%;
+      height: 44px;
+      padding: 0 18px 0 42px;
+      border-radius: 22px;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.06);
+      color: #e8e9ee;
+      font-size: 14px;
       font-family: inherit;
       outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      transition: background 0.12s, border-color 0.12s;
     }
-    input::placeholder { color: #6d707a; }
-    input:focus {
-      border-color: #8a7bff;
-      box-shadow: 0 0 0 4px rgba(138, 123, 255, 0.14);
+    input::placeholder { color: #666974; }
+    input:hover { background: rgba(255, 255, 255, 0.09); }
+    input:focus { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.13); }
+    .freq { margin-top: 36px; }
+    .freq h3 {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #666974;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 14px;
     }
-    .freq { margin-top: 34px; text-align: left; }
-    .freq h3 { font-size: 12.5px; color: #8b8d97; margin-bottom: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
-    .ftiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-    .ftile { border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px 10px; background: rgba(255,255,255,0.03); cursor: pointer; text-align: center; transition: background 0.15s, border-color 0.15s; }
-    .ftile:hover { background: rgba(255,255,255,0.08); border-color: rgba(138,123,255,0.35); }
-    .fdot { width: 36px; height: 36px; border-radius: 50%; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: #fff; }
-    .fhost { font-size: 13px; color: #e7e7ea; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
-    .fcount { font-size: 11px; color: #8b8d97; }
-    .fdel { float: right; opacity: 0; font-size: 13px; line-height: 1; }
-    .ftile:hover .fdel { opacity: 0.7; }
-    .fdel:hover { color: #ff5f56; }
-    .links { margin-top: 30px; display: flex; gap: 22px; justify-content: center; }
+    .ftiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+    .ftile {
+      position: relative;
+      border-radius: 10px;
+      padding: 14px 8px 12px;
+      background: transparent;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.12s;
+    }
+    .ftile:hover { background: rgba(255, 255, 255, 0.06); }
+    .fdot {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      margin: 0 auto 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .fhost { font-size: 12px; color: #e8e9ee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 3px; }
+    .fcount { font-size: 11px; color: #666974; }
+    .fdel {
+      position: absolute;
+      top: 6px; right: 6px;
+      width: 20px; height: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.09);
+      color: #8f929e;
+      cursor: pointer;
+    }
+    .fdel svg { width: 11px; height: 11px; display: block; }
+    .ftile:hover .fdel { display: inline-flex; }
+    .fdel:hover { background: rgba(242, 88, 92, 0.16); color: #f2585c; }
+    .links { margin-top: 34px; display: flex; gap: 6px; justify-content: center; }
     .links a {
-      color: #8b8d97;
-      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 8px;
+      color: #8f929e;
+      font-size: 12.5px;
       text-decoration: none;
       cursor: pointer;
     }
-    .links a:hover { color: #8a7bff; }
-    .foot { margin-top: 26px; color: #565863; font-size: 12px; }
+    .links a svg { width: 14px; height: 14px; }
+    .links a:hover { background: rgba(255, 255, 255, 0.06); color: #e8e9ee; }
   </style>
 </head>
 <body>
-  <div class="bg"></div>
   <div class="wrap">
-    <div class="mark">Liber<i>.</i></div>
-    <div class="tag">интернет без препятствий. уже включено.</div>
+    <div class="mark">liber<i>.net</i></div>
+    <div class="tag">интернет без препятствий</div>
     <form id="f">
-      <input name="q" type="text" placeholder="адрес или поиск" autocomplete="off" spellcheck="false">
+      <div class="sbox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input name="q" type="text" placeholder="адрес или поиск" autocomplete="off" spellcheck="false">
+      </div>
     </form>
     <div class="links">
-      <a data-p="hist">История</a>
-      <a data-p="dls">Загрузки</a>
-      <a data-p="bms">Закладки</a>
-      <a data-p="settings">Настройки</a>
+      <a data-p="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>История</a>
+      <a data-p="dls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Загрузки</a>
+      <a data-p="bms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Закладки</a>
+      <a data-p="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Настройки</a>
     </div>
-    <div class="foot">liber.net</div>
   </div>
   <script>
     const P = window.liberPage
@@ -94,6 +150,7 @@
     for (const a of document.querySelectorAll('.links a')) {
       a.addEventListener('click', () => { if (P) P.page(a.dataset.p) })
     }
+    const XSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
     ;(async () => {
       let list = []
       try { list = await P.freqList() } catch (_) {}
@@ -111,7 +168,7 @@
         dot.className = 'fdot'
         let hh = 0
         for (const c of d.host) hh = ((hh << 5) - hh + c.charCodeAt(0)) | 0
-        dot.style.background = 'hsl(' + (Math.abs(hh) % 360) + ', 60%, 55%)'
+        dot.style.background = 'hsl(' + (Math.abs(hh) % 360) + ', 32%, 42%)'
         dot.textContent = d.host.charAt(0).toUpperCase()
         const name = document.createElement('div')
         name.className = 'fhost'
@@ -121,7 +178,7 @@
         cnt.textContent = d.count + ' посещений'
         const del = document.createElement('button')
         del.className = 'fdel'
-        del.textContent = '✕'
+        del.innerHTML = XSVG
         del.title = 'скрыть'
         del.addEventListener('click', ev => {
           ev.stopPropagation()
@@ -136,7 +193,7 @@
       }
       wrap.append(grid)
       const links = document.querySelector('.links')
-      if (links) links.parentNode.insertBefore(wrap, links)
+      if (links && list.length) links.parentNode.insertBefore(wrap, links)
     })()
   </script>
 </body>

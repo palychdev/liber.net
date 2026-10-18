@@ -2,34 +2,34 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Liber</title>
+  <title>liber.net</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="bar">
-    <div class="logo"><span>Liber</span><i>.</i></div>
+    <div class="logo"><b>liber</b><i>.net</i></div>
     <div class="navc">
-      <button id="back" class="icn" title="Назад">‹</button>
-      <button id="reld" class="icn" title="Обновить">⟳</button>
+      <button id="back" class="icn" title="Назад"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+      <button id="reld" class="icn" title="Обновить"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
     </div>
     <div id="tabs"></div>
-    <button id="add" class="add" title="Новая вкладка">+</button>
+    <button id="add" class="add" title="Новая вкладка"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <div class="grow"></div>
-    <button id="dls" class="dlchip" title="Загрузки (Ctrl+J)"></button>
+    <button id="dls" class="dlchip" title="Загрузки (Ctrl+J)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg><span id="dlstxt"></span></button>
     <span id="engine" class="dot" title="обход"></span>
-    <button id="more" class="icn" title="Меню">⋮</button>
+    <button id="more" class="icn" title="Меню"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
     <div id="winctl">
-      <button data-m="min" class="wb">−</button>
-      <button data-m="max" class="wb">▢</button>
-      <button data-m="close" class="wb close">✕</button>
+      <button data-m="min" class="wb" title="Свернуть"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button data-m="max" class="wb" title="Развернуть"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg></button>
+      <button data-m="close" class="wb close" title="Закрыть"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
   </div>
   <div id="omnirow">
-    <button id="star" class="icn" title="В закладки (Ctrl+D)">☆</button>
     <div id="omniwrap">
       <span id="lock" class="lock"></span>
       <input id="omni" type="text" spellcheck="false" placeholder="адрес или поиск">
       <span id="cnt"></span>
+      <button id="star" class="icn" title="В закладки (Ctrl+D)"></button>
     </div>
     <div id="sug"></div>
     <div id="sitepanel"></div>
