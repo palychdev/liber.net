@@ -1,0 +1,36 @@
+appId: net.liber.browser
+copyright: © palychdev
+directories:
+  output: dist
+  buildResources: build
+files:
+  - src/**/*
+  - package.json
+extraResources:
+  - from: engine
+    to: engine
+electronLanguages:
+  - ru
+  - en-US
+win:
+  icon: icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  menuCategory: false
+  shortcutName: liber.net
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-${version}-setup.${ext}
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}

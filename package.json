@@ -1,14 +1,17 @@
 {
   "name": "liber",
   "productName": "liber.net",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "liber.net browser — chromium with built-in dpi-desync bypass",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "pack": "electron-builder --win --dir",
+    "dist": "electron-builder --win"
   },
   "devDependencies": {
-    "electron": "^44.9.0"
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3"
   },
   "license": "MIT",
   "author": "palychdev"
