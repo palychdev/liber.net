@@ -78,6 +78,26 @@
         <button class="mini danger" id="clAll">очистить всё</button>
       </div>
       <div class="hint" id="cleared"></div>
+      <div class="kv" style="margin-top:10px">
+        <span class="k">трекинг</span>
+        <label><input id="privDnt" type="checkbox"> отправлять do-not-track</label>
+      </div>
+      <div class="kv">
+        <span class="k">сторонние куки</span>
+        <label><input id="privThird" type="checkbox"> блокировать сторонние куки</label>
+      </div>
+      <div class="kv">
+        <span class="k">автовоспроизведение звука</span>
+        <select id="privAutoplay">
+          <option value="allow">разрешать всегда</option>
+          <option value="gesture">только после действия на странице</option>
+          <option value="block">запрещать</option>
+        </select>
+      </div>
+      <div class="kv">
+        <span class="k">при выходе из браузера</span>
+        <label><input id="privClear" type="checkbox"> очищать куки и данные сайтов</label>
+      </div>
     </div>
 
     <div class="card">
@@ -226,6 +246,11 @@
       $('dldir').textContent = s.downloadsDir
       $('bmbar').checked = s.bmBar !== false
       $('restore').checked = s.restore !== false
+      const p = s.privacy || {}
+      $('privDnt').checked = p.dnt === true
+      $('privThird').checked = p.thirdParty === true
+      $('privAutoplay').value = p.autoplay || 'allow'
+      $('privClear').checked = p.clearOnExit === true
       const e = $('eng')
       e.textContent = s.engine ? 'работает' : 'выключен'
       e.className = 'st ' + (s.engine ? 'ok' : 'bad')
@@ -246,6 +271,22 @@
         document.getElementById("datares").textContent = "всё очищено: кэш, куки, история"
         await loadData()
       })
+      const privSave = () => {
+        const p = {
+          dnt: $('privDnt').checked,
+          thirdParty: $('privThird').checked,
+          autoplay: $('privAutoplay').value,
+          clearOnExit: $('privClear').checked
+        }
+        P.stSet({ privacy: p })
+        document.getElementById("saved").textContent = "конфиденциальность сохранена"
+        clearTimeout(privSave.t)
+        privSave.t = setTimeout(() => { document.getElementById("saved").textContent = "" }, 1600)
+      }
+      $('privDnt').addEventListener('change', privSave)
+      $('privThird').addEventListener('change', privSave)
+      $('privAutoplay').addEventListener('change', privSave)
+      $('privClear').addEventListener('change', privSave)
     }
 
     async function loadData() {

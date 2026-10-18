@@ -560,6 +560,7 @@ function applySettings(patch) {
     settings.adblock = patch.adblock
     adblock.on = patch.adblock
   }
+  if (patch.privacy && typeof patch.privacy === 'object') settings.privacy = patch.privacy
   data.settings = settings
   storage.save(data)
   sendSettings()
@@ -851,6 +852,11 @@ function newTab(url, w) {
       plugins: true,
       spellcheck: true,
       preload: path.join(__dirname, 'content-preload.js'),
+      autoplayPolicy: (settings.privacy && settings.privacy.autoplay || 'allow') === 'allow'
+        ? 'no-user-gesture-required'
+        : (settings.privacy && settings.privacy.autoplay === 'block'
+          ? 'user-gesture-required'
+          : 'document-user-activation-required'),
     },
   })
   const t = { id, view, url: url || START_URL, title: '', loading: false, favicon: '', pinned: false, group: '' }
@@ -1499,17 +1505,30 @@ function setupSession(s) {
     cb(adblock.check(details.url, details.resourceType, doc) ? { cancel: true } : {})
   })
   s.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, cb) => {
+    const h = details.requestHeaders || {}
+    if (settings.privacy && settings.privacy.dnt) h['DNT'] = '1'
+    if (settings.privacy && settings.privacy.thirdParty && details.frame) {
+      const tHost = hostOfUrl(String(details.frame.top && details.frame.top.url || ''))
+      const rHost = hostOfUrl(details.url)
+      if (tHost && rHost && regDomain(tHost) !== regDomain(rHost)) {
+        for (const k of Object.keys(h)) if (k.toLowerCase() === 'cookie') delete h[k]
+      }
+    }
     const sr = siteRule(hostOfUrl(details.url))
     if (sr && sr.cookies === 'deny') {
-      const h = details.requestHeaders || {}
-      for (const k of Object.keys(h)) {
-        if (k.toLowerCase() === 'cookie') delete h[k]
-      }
+      for (const k of Object.keys(h)) if (k.toLowerCase() === 'cookie') delete h[k]
     }
     cb({ requestHeaders: details.requestHeaders })
   })
   s.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (details, cb) => {
     const headers = details.responseHeaders || {}
+    if (settings.privacy && settings.privacy.thirdParty && details.frame) {
+      const tHost = hostOfUrl(String(details.frame.top && details.frame.top.url || ''))
+      const rHost = hostOfUrl(details.url)
+      if (tHost && rHost && regDomain(tHost) !== regDomain(rHost)) {
+        for (const k of Object.keys(headers)) if (k.toLowerCase() === 'set-cookie') delete headers[k]
+      }
+    }
     const sr = siteRule(hostOfUrl(details.url))
     if (sr && sr.cookies === 'deny') {
       for (const k of Object.keys(headers)) {
@@ -2486,6 +2505,11 @@ if (!lock) {
       console.log('ST site panel esc:', await js(`JSON.stringify({ shown: document.getElementById('sitepanel').classList.contains('show') })`))
       srDel('127.0.0.1')
       await clearTestCookies()
+      console.log('ST privacy:')
+      applySettings({ privacy: { dnt: true, thirdParty: true, autoplay: 'gesture', clearOnExit: true } })
+      await wait(300)
+      console.log('ST privacy applied:', JSON.stringify(settings.privacy))
+      applySettings({ privacy: { dnt: false, thirdParty: false, autoplay: 'allow', clearOnExit: false } })
       srv.close()
       console.log('ST engines:')
       console.log('ST eng base:', JSON.stringify(engList().map(e => e.id + (e.builtin ? '*' : ''))), '| d ->', keywordEngine('d') ? keywordEngine('d').label : '-')
@@ -2592,5 +2616,26 @@ if (!lock) {
     console.log('ST done')
   }
 
+  app.on('before-quit', (e) => {
+    if (!(settings.privacy && settings.privacy.clearOnExit)) return
+    e.preventDefault()
+    ;(async () => {
+      for (const s of [...liveSessions, ses]) {
+        try {
+          const cookies = await s.cookies.get({}).catch(() => [])
+          for (const c of cookies) {
+            const url = (c.secure ? 'https://' : 'http://') + String(c.domain || '').replace(/^\./, '') + (c.path || '/')
+            try { await s.cookies.remove(url, c.name) } catch (_) {}
+          }
+          await s.clearStorageData({ storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage', 'serviceworkers', 'filesystem', 'shadercache', 'websql'] }).catch(() => {})
+        } catch (_) {}
+      }
+      try {
+        data.history = []
+        storage.save(data)
+      } catch (_) {}
+      app.quit()
+    })()
+  })
   app.on('window-all-closed', () => app.quit())
 }
