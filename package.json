@@ -2,7 +2,7 @@
   "name": "liber",
   "productName": "liber.net",
   "version": "0.7.0",
-  "description": "liber.net browser — chromium with built-in dpi-desync bypass",
+  "description": "Chromium-based browser with built-in DPI bypass (desync)",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -14,5 +14,26 @@
     "electron-builder": "^26.15.3"
   },
   "license": "MIT",
-  "author": "palychdev"
+  "author": {
+    "name": "palychdev",
+    "email": "147124963+palychdev@users.noreply.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/palychdev/liber.net.git"
+  },
+  "homepage": "https://liber.net",
+  "bugs": {
+    "url": "https://github.com/palychdev/liber.net/issues"
+  },
+  "keywords": [
+    "browser",
+    "chromium",
+    "electron",
+    "dpi",
+    "dpi-bypass",
+    "desync",
+    "byedpi",
+    "privacy"
+  ]
 }

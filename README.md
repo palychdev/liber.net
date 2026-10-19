@@ -204,4 +204,4 @@ npm run dist     # установщик и portable-сборка в dist\
 
 ## Лицензия
 
-[MIT](LICENSE). Движок byedpi распространяется по лицензии MIT.
+[MIT](LICENSE). Движок byedpi распространяется по лицензии MIT, полный список сторонних компонентов — в [THIRD-PARTY.md](THIRD-PARTY.md).
