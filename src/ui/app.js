@@ -771,43 +771,52 @@ window.addEventListener('keydown', e => {
     else if (e.key === 'F6') { e.preventDefault(); omni.focus(); omni.select() }
     return
   }
-  const k = e.key.toLowerCase()
+  // Hotkeys must work on any keyboard layout: with the Russian layout
+  // Ctrl+H arrives as "р" in e.key, while e.code stays "KeyH".
+  const code = e.code || ''
+  const chars = new Set()
+  if (e.key.length === 1) chars.add(e.key.toLowerCase())
+  if (/^Key[A-Z]$/.test(code)) chars.add(code.slice(3).toLowerCase())
+  if (/^Digit[0-9]$/.test(code)) chars.add(code.slice(5))
+  if (code === 'Equal' || code === 'NumpadAdd') chars.add('+')
+  if (code === 'Minus' || code === 'NumpadSubtract') chars.add('-')
+  const is = c => chars.has(c) || e.key === c
   const a = activeTab()
   if (e.shiftKey) {
-    if (k === 'o') { e.preventDefault(); window.liber.page('bms') }
-    else if (k === 't') { e.preventDefault(); window.liber.reopen() }
-    else if (k === 'n') { e.preventDefault(); window.liber.newWindow(true) }
-    else if (k === 'a') { e.preventDefault(); openTabSearch() }
-    else if (k === 'b') { e.preventDefault(); settings.bmBar = settings.bmBar === false; window.liber.stSet({ bmBar: settings.bmBar }); renderBm(bms) }
-    else if (k === 'Delete') { e.preventDefault(); window.liber.page('settings') }
-    else if (k === 'Tab') { e.preventDefault(); window.liber.cycle(-1) }
-    else if (['+', '='].includes(e.key)) { e.preventDefault(); if (a) window.liber.zoom(a.id, 1) }
-    else if (e.key === '-') { e.preventDefault(); if (a) window.liber.zoom(a.id, -1) }
+    if (is('o')) { e.preventDefault(); window.liber.page('bms') }
+    else if (is('t')) { e.preventDefault(); window.liber.reopen() }
+    else if (is('n')) { e.preventDefault(); window.liber.newWindow(true) }
+    else if (is('a')) { e.preventDefault(); openTabSearch() }
+    else if (is('b')) { e.preventDefault(); settings.bmBar = settings.bmBar === false; window.liber.stSet({ bmBar: settings.bmBar }); renderBm(bms) }
+    else if (is('Delete')) { e.preventDefault(); window.liber.page('settings') }
+    else if (is('Tab')) { e.preventDefault(); window.liber.cycle(-1) }
+    else if (is('+') || is('=')) { e.preventDefault(); if (a) window.liber.zoom(a.id, 1) }
+    else if (is('-')) { e.preventDefault(); if (a) window.liber.zoom(a.id, -1) }
     return
   }
-  if (k === 't') { e.preventDefault(); window.liber.newTab() }
-  else if (k === 'n') { e.preventDefault(); window.liber.newWindow(false) }
-  else if (k === 'w') { e.preventDefault(); if (a) window.liber.closeTab(a.id) }
-  else if (k === 'l') { e.preventDefault(); omni.focus(); omni.select() }
-  else if (k === 'f') { e.preventDefault(); enterFind() }
-  else if (k === 'h') { e.preventDefault(); window.liber.page('hist') }
-  else if (k === 'j') { e.preventDefault(); window.liber.page('dls') }
-  else if (k === 'u') { e.preventDefault(); if (a) window.liber.source(a.id) }
-  else if (k === 's') { e.preventDefault(); if (a) window.liber.save(a.id) }
-  else if (k === 'p') { e.preventDefault(); if (a) window.liber.print(a.id) }
-  else if (k === 'd' && a && /^https?:/i.test(a.url || '')) {
+  if (is('t')) { e.preventDefault(); window.liber.newTab() }
+  else if (is('n')) { e.preventDefault(); window.liber.newWindow(false) }
+  else if (is('w')) { e.preventDefault(); if (a) window.liber.closeTab(a.id) }
+  else if (is('l')) { e.preventDefault(); omni.focus(); omni.select() }
+  else if (is('f')) { e.preventDefault(); enterFind() }
+  else if (is('h')) { e.preventDefault(); window.liber.page('hist') }
+  else if (is('j')) { e.preventDefault(); window.liber.page('dls') }
+  else if (is('u')) { e.preventDefault(); if (a) window.liber.source(a.id) }
+  else if (is('s')) { e.preventDefault(); if (a) window.liber.save(a.id) }
+  else if (is('p')) { e.preventDefault(); if (a) window.liber.print(a.id) }
+  else if (is('d') && a && /^https?:/i.test(a.url || '')) {
     e.preventDefault()
     window.liber.bmToggle(a.url, a.title)
   }
-  else if (k === 'r') { e.preventDefault(); if (a) window.liber.reload(a.id) }
-  else if (k === 'Tab') { e.preventDefault(); window.liber.cycle(1) }
+  else if (is('r')) { e.preventDefault(); if (a) window.liber.reload(a.id) }
+  else if (is('Tab')) { e.preventDefault(); window.liber.cycle(1) }
   else if (/^[1-8]$/.test(e.key)) { e.preventDefault(); window.liber.pick(Number(e.key) - 1) }
-  else if (e.key === '9') { e.preventDefault(); window.liber.pick(-1) }
-  else if (!findMode && ['+', '=', '-'].includes(e.key)) {
+  else if (is('9')) { e.preventDefault(); window.liber.pick(-1) }
+  else if (!findMode && (is('+') || is('=') || is('-'))) {
     e.preventDefault()
-    if (a) window.liber.zoom(a.id, e.key === '-' ? -1 : 1)
+    if (a) window.liber.zoom(a.id, is('-') ? -1 : 1)
   }
-  else if (k === '0') { e.preventDefault(); if (a) window.liber.zoom(a.id, 0) }
+  else if (is('0')) { e.preventDefault(); if (a) window.liber.zoom(a.id, 0) }
 })
 
 tabsEl.addEventListener('wheel', e => {

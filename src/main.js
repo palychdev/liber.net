@@ -716,6 +716,16 @@ function handleKeys(wc, event, input, w) {
   if (input.type !== 'keyDown') return false
   const key = input.key
   const k = key.length === 1 ? key.toLowerCase() : key
+  // Hotkeys must work on any keyboard layout: with the Russian layout
+  // Ctrl+H arrives as "р" in input.key, while input.code stays "KeyH".
+  const code = input.code || ''
+  const chars = new Set()
+  if (key.length === 1) chars.add(key.toLowerCase())
+  if (/^Key[A-Z]$/.test(code)) chars.add(code.slice(3).toLowerCase())
+  if (/^Digit[0-9]$/.test(code)) chars.add(code.slice(5))
+  if (code === 'Equal' || code === 'NumpadAdd') chars.add('+')
+  if (code === 'Minus' || code === 'NumpadSubtract') chars.add('-')
+  const is = c => chars.has(c) || k === c
   if (input.alt && !input.control) {
     if (key === 'ArrowLeft' || key === 'Left') { if (wc.navigationHistory.canGoBack()) wc.goBack(); event.preventDefault(); return true }
     if (key === 'ArrowRight' || key === 'Right') { if (wc.navigationHistory.canGoForward()) wc.goForward(); event.preventDefault(); return true }
@@ -731,40 +741,40 @@ function handleKeys(wc, event, input, w) {
     return false
   }
   if (input.shift) {
-    if (k === 'o') { newTab(internalPage('bms'), w); event.preventDefault(); return true }
-    if (k === 'i') { wc.toggleDevTools(); event.preventDefault(); return true }
-    if (k === 't') { reopenClosed(w); event.preventDefault(); return true }
-    if (k === 'b') { applySettings({ bmBar: !settings.bmBar }); event.preventDefault(); return true }
-    if (k === 'n') { createWindow({ private: true }); event.preventDefault(); return true }
-    if (k === 'a') { w.win.webContents.send('tab-search'); w.win.webContents.focus(); event.preventDefault(); return true }
-    if (k === 'Tab') { switchRelative(w, -1); event.preventDefault(); return true }
-    if (k === 'Delete') { newTab(internalPage('settings'), w); event.preventDefault(); return true }
-    if (k === '+' || k === '=') { zoomBy(wc, 1, w); event.preventDefault(); return true }
-    if (k === '-') { zoomBy(wc, -1, w); event.preventDefault(); return true }
+    if (is('o')) { newTab(internalPage('bms'), w); event.preventDefault(); return true }
+    if (is('i')) { wc.toggleDevTools(); event.preventDefault(); return true }
+    if (is('t')) { reopenClosed(w); event.preventDefault(); return true }
+    if (is('b')) { applySettings({ bmBar: !settings.bmBar }); event.preventDefault(); return true }
+    if (is('n')) { createWindow({ private: true }); event.preventDefault(); return true }
+    if (is('a')) { w.win.webContents.send('tab-search'); w.win.webContents.focus(); event.preventDefault(); return true }
+    if (is('Tab')) { switchRelative(w, -1); event.preventDefault(); return true }
+    if (is('Delete')) { newTab(internalPage('settings'), w); event.preventDefault(); return true }
+    if (is('+') || is('=')) { zoomBy(wc, 1, w); event.preventDefault(); return true }
+    if (is('-')) { zoomBy(wc, -1, w); event.preventDefault(); return true }
     return false
   }
-  if (k === 'Tab') { switchRelative(w, 1); event.preventDefault(); return true }
-  if (k === 't') { newTab(null, w); event.preventDefault(); return true }
-  if (k === 'n') { createWindow({}); event.preventDefault(); return true }
-  if (k === 'w') { closeTab(w, w.activeId); event.preventDefault(); return true }
-  if (k === 'l') { focusOmni(w); event.preventDefault(); return true }
-  if (k === 'f') { w.win.webContents.send('find-omni'); w.win.webContents.focus(); event.preventDefault(); return true }
-  if (k === 'h') { newTab(internalPage('hist'), w); event.preventDefault(); return true }
-  if (k === 'j') { newTab(internalPage('dls'), w); event.preventDefault(); return true }
-  if (k === 'u') { sourceOf(wc); event.preventDefault(); return true }
-  if (k === 's') { savePageOf(wc, wcToTab(wc)); event.preventDefault(); return true }
-  if (k === 'p') { printOf(wc); event.preventDefault(); return true }
-  if (/^[1-8]$/.test(key)) { const t = w.tabs[Number(key) - 1]; if (t) switchTab(w, t.id); event.preventDefault(); return true }
-  if (key === '9') { if (w.tabs.length) switchTab(w, w.tabs[w.tabs.length - 1].id); event.preventDefault(); return true }
-  if (k === 'd') {
+  if (is('Tab')) { switchRelative(w, 1); event.preventDefault(); return true }
+  if (is('t')) { newTab(null, w); event.preventDefault(); return true }
+  if (is('n')) { createWindow({}); event.preventDefault(); return true }
+  if (is('w')) { closeTab(w, w.activeId); event.preventDefault(); return true }
+  if (is('l')) { focusOmni(w); event.preventDefault(); return true }
+  if (is('f')) { w.win.webContents.send('find-omni'); w.win.webContents.focus(); event.preventDefault(); return true }
+  if (is('h')) { newTab(internalPage('hist'), w); event.preventDefault(); return true }
+  if (is('j')) { newTab(internalPage('dls'), w); event.preventDefault(); return true }
+  if (is('u')) { sourceOf(wc); event.preventDefault(); return true }
+  if (is('s')) { savePageOf(wc, wcToTab(wc)); event.preventDefault(); return true }
+  if (is('p')) { printOf(wc); event.preventDefault(); return true }
+  if (/^[1-8]$/.test(k)) { const t = w.tabs[Number(k) - 1]; if (t) switchTab(w, t.id); event.preventDefault(); return true }
+  if (is('9')) { if (w.tabs.length) switchTab(w, w.tabs[w.tabs.length - 1].id); event.preventDefault(); return true }
+  if (is('d')) {
     const a = activeTab(w)
     if (a && a.url && /^https?:/i.test(a.url)) toggleBm(a.url, a.title)
     event.preventDefault(); return true
   }
-  if (k === 'r') { wc.reload(); event.preventDefault(); return true }
-  if (k === '+' || k === '=') { zoomBy(wc, 1, w); event.preventDefault(); return true }
-  if (k === '-') { zoomBy(wc, -1, w); event.preventDefault(); return true }
-  if (k === '0') { setZoom(wc, 1, w); event.preventDefault(); return true }
+  if (is('r')) { wc.reload(); event.preventDefault(); return true }
+  if (is('+') || is('=')) { zoomBy(wc, 1, w); event.preventDefault(); return true }
+  if (is('-')) { zoomBy(wc, -1, w); event.preventDefault(); return true }
+  if (is('0')) { setZoom(wc, 1, w); event.preventDefault(); return true }
   return false
 }
 
